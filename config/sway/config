@@ -124,6 +124,9 @@ bindsym $mod+n exec dunstctl close-all
 bindsym $mod+Shift+n exec dunstctl history-pop
 bindsym $mod+Ctrl+n exec ~/.local/bin/dnd
 
+# Super+F1: a searchable list of all these keybindings
+bindsym $mod+F1 exec ~/.local/bin/keybindings
+
 # Dropdown terminal (Super+u toggles it)
 bindsym $mod+u exec ~/.local/bin/dropdown-terminal
 

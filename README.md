@@ -302,6 +302,7 @@ To try Sway without autostart, log in on any TTY and run `sway`.
 | `Super + Ctrl + P` | Screenshot, the focused window (no borders or gaps) |
 | `Super + Alt + P` | Screenshot, full screen after 3 seconds (to catch an open menu) |
 | `Super + Shift + Q` | Close window |
+| `Super + F1` | Search all keybindings (read from the Sway config, so it's always current) |
 
 ### Windows and layout
 
@@ -373,6 +374,7 @@ All scripts live in `bin/` and are linked into `~/.local/bin`:
 | `screenshot [select\|window\|delay]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` (or your XDG pictures folder) and copies to the clipboard |
 | `dropdown-terminal` | Toggles a floating scratchpad terminal, 66 % × 65 % of the screen (foot on Sway, st on i3) |
 | `power-menu` | Lock / suspend / log out / reboot / shut down in fuzzel, with a Yes / No step for the last three |
+| `keybindings` | Lists the Sway keybindings in fuzzel, read from the config and `config.d` |
 | `dnd` | Do Not Disturb toggle (`dnd status` feeds the Waybar bell) |
 | `battery-warning` | Low battery popup at 15 % and 7 % (once per level), run every 2 minutes by `battery-warning.timer` |
 | `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed. Connected / saved networks offer Disconnect / Connect / Forget |

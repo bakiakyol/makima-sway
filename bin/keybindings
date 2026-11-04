@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""keybindings: a searchable list of the Sway keybindings in fuzzel (Super+F1).
+
+Read straight from the Sway config (~/.config/sway/config, then ~/.config/sway/config.d/*,
+in the same order as Sway reads them), so it's always up to date: a key you rebind in
+config.d shows its new action. Type to filter ("screen", "workspace 3", "Shift"...).
+It only shows the list; Enter or Esc closes it.
+
+Uses only the Python standard library.
+"""
+
+import glob
+import os
+import re
+import subprocess
+
+CONFIG = os.path.expanduser("~/.config/sway/config")
+LOCAL = os.path.expanduser("~/.config/sway/config.d/*")
+
+# How key names are shown
+MODIFIERS = {"mod4": "Super", "mod1": "Alt", "ctrl": "Ctrl", "control": "Ctrl", "shift": "Shift"}
+KEYS = {
+	"return": "Enter", "space": "Space", "scedilla": "Ş", "escape": "Esc",
+	"left": "←", "right": "→", "up": "↑", "down": "↓",
+	"xf86audioraisevolume": "Volume up", "xf86audiolowervolume": "Volume down",
+	"xf86audiomute": "Mute", "xf86audiomicmute": "Mic mute",
+	"xf86monbrightnessup": "Brightness up", "xf86monbrightnessdown": "Brightness down",
+}
+
+
+# Plain words for actions whose command alone doesn't say much
+FRIENDLY = {
+	"foot": "foot (terminal)",
+	"fuzzel": "fuzzel (app launcher)",
+	"kill": "close the window",
+	"reload": "reload the Sway config",
+	"lock": "lock the screen",
+	"dunstctl close-all": "close the notifications on screen",
+	"dunstctl history-pop": "bring back the last notification",
+	"dnd": "Do Not Disturb on / off",
+	"power-menu": "power menu (lock, suspend, log out, reboot, shut down)",
+	"keybindings": "this list",
+	"dropdown-terminal": "dropdown terminal on / off",
+	"focus parent": "focus the parent container",
+	"focus mode_toggle": "switch focus between tiling and floating",
+}
+
+
+def read_bindings(path, variables, bindings, mode="default"):
+	"""Add the bindsym lines of one file to bindings: {(mode, keys): action}."""
+	try:
+		lines = open(path).read().splitlines()
+	except OSError:
+		return
+	for line in lines:
+		line = line.strip()
+		if not line or line.startswith("#"):
+			continue
+		words = line.split()
+		if words[0] == "set" and len(words) >= 3:
+			variables[words[1]] = " ".join(words[2:])
+		elif words[0] == "mode" and line.endswith("{"):
+			mode = line[len("mode"):-1].strip().strip('"')
+		elif line == "}":
+			mode = "default"
+		elif words[0] == "bindsym":
+			# Skip options like --release / --locked
+			args = [w for w in words[1:] if not w.startswith("--")]
+			if len(args) >= 2:
+				bindings[(mode, expand(args[0], variables))] = " ".join(args[1:])
+
+
+def expand(text, variables):
+	for name in sorted(variables, key=len, reverse=True):
+		text = text.replace(name, variables[name])
+	return text
+
+
+def pretty_keys(combo):
+	parts = combo.split("+")
+	shown = [MODIFIERS.get(p.lower()) or KEYS.get(p.lower()) or (p.upper() if len(p) == 1 else p)
+		for p in parts]
+	return " + ".join(shown)
+
+
+def pretty_action(action):
+	action = re.sub(r"^exec\s+(--no-startup-id\s+)?", "", action)
+	action = action.replace("~/.local/bin/", "")
+	mode = re.fullmatch(r'mode "?([^"]+)"?', action)
+	if mode:
+		return "back to normal keys" if mode.group(1) == "default" else f"{mode.group(1)} mode"
+	return FRIENDLY.get(action, action)
+
+
+def main():
+	variables, bindings = {}, {}
+	read_bindings(CONFIG, variables, bindings)
+	for path in sorted(glob.glob(LOCAL)):
+		read_bindings(path, variables, bindings)
+
+	lines = []
+	for (mode, keys), action in bindings.items():
+		where = "" if mode == "default" else f"[{mode}] "
+		lines.append(f"{where + pretty_keys(keys):<28} {pretty_action(action)}")
+	if not lines:
+		lines = [f"No keybindings found in {CONFIG}"]
+
+	subprocess.run(
+		["fuzzel", "--dmenu", "--prompt", "Keys ❯ ", "--width", "80", "--lines", "15"],
+		input="\n".join(lines), text=True, capture_output=True,
+	)
+	return 0
+
+
+if __name__ == "__main__":
+	raise SystemExit(main())
