@@ -95,7 +95,7 @@ That shaped the design rules:
 - **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed.
 - **Notifications by urgency.** Volume and brightness popups get an amber progress bar. Critical alerts get an oxblood background and stay until you dismiss them.
 - **Lock screen.** A blurred, darkened copy of the wallpaper with a palette-colored ring. It locks after 10 min idle and before suspend, and the screen turns off at 11 min.
-- **Screenshots.** Full screen or a selected region, saved to `~/Pictures/Screenshots/` and copied to the clipboard.
+- **Screenshots.** Full screen or a selected region, saved to `~/Pictures/Screenshots/` (your XDG pictures folder, if you have one) and copied to the clipboard. Two shots in the same second never overwrite each other.
 - **Dropdown terminal.** A floating scratchpad terminal toggled with one key.
 - **Dark GTK apps (Sway only).** Firefox and other GTK apps go dark through `GTK_THEME`, without touching other desktops on the same account.
 - **Coexists with i3.** Shared scripts branch on `$WAYLAND_DISPLAY`, and the Sway notification config is fully separate. I run i3 on tty1 and this setup on tty2.
@@ -343,7 +343,7 @@ All scripts live in `bin/` and are linked into `~/.local/bin`:
 | `volume up\|down\|mute\|mic` | Volume through `wpctl`, with a dunst popup that updates in place |
 | `brightness up\|down` | Brightness through `brightnessctl` (never below 5 % of the maximum), with a popup |
 | `lock` | `swaylock` on Wayland, `i3lock` on X11 |
-| `screenshot [select]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` and copies to the clipboard |
+| `screenshot [select]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` (or your XDG pictures folder) and copies to the clipboard |
 | `dropdown-terminal` | Toggles a floating 900×500 scratchpad terminal (foot on Sway, st on i3) |
 | `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed |
 

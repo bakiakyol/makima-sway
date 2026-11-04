@@ -1,27 +1,52 @@
 #!/bin/sh
-# screenshot [select]: saves to ~/Pictures/Screenshots/ and copies to the clipboard.
+# screenshot [select]: saves to <Pictures>/Screenshots/ and copies to the clipboard.
+# <Pictures> is your XDG pictures folder (~/.config/user-dirs.dirs), ~/Pictures if there is none.
 # Works on both Sway (grim, slurp, wl-copy) and i3 (maim, xclip), decided by $WAYLAND_DISPLAY.
-dir="$HOME/Pictures/Screenshots"; mkdir -p "$dir"
-file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+
+# fail MESSAGE: error popup, then stop
+fail() {
+	notify-send -u critical -t 4000 -h string:x-dunst-stack-tag:screenshot "Screenshot failed" "$1"
+	exit 1
+}
+
+dirs="${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs"
+# shellcheck source=/dev/null
+[ -r "$dirs" ] && . "$dirs"
+dir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
+mkdir -p "$dir" || fail "Can't create $dir"
+
+# Two shots in the same second get "-2", "-3", ... instead of overwriting each other
+name=$(date +%Y-%m-%d_%H-%M-%S)
+file="$dir/$name.png"
+n=2
+while [ -e "$file" ]; do
+	file="$dir/$name-$n.png"
+	n=$((n + 1))
+done
 
 if [ -n "$WAYLAND_DISPLAY" ]; then
 	# Sway
 	if [ "$1" = select ]; then
 		# -b: dim  -c: border (crimson)  -s: selected area  -w: border width
 		area=$(slurp -b 140b0799 -c e22e0eff -s f2a33a22 -w 2) || exit 0   # Esc cancels
-		grim -g "$area" "$file"
+		grim -g "$area" "$file" || fail "grim couldn't save $file"
 	else
-		grim "$file"
+		grim "$file" || fail "grim couldn't save $file"
 	fi
-	wl-copy --type image/png <"$file"
+	copy() { wl-copy --type image/png <"$file"; }
 else
-	# i3
+	# i3 (maim exits with an error both on Esc and on failure, so both just stop)
 	if [ "$1" = select ]; then
-		maim -s -u "$file" || exit 0        # Esc cancels
+		maim -s -u "$file" || exit 0
 	else
-		maim -u "$file"
+		maim -u "$file" || fail "maim couldn't save $file"
 	fi
-	xclip -selection clipboard -t image/png -i "$file"
+	copy() { xclip -selection clipboard -t image/png -i "$file"; }
 fi
 
-notify-send -t 2500 -h string:x-dunst-stack-tag:screenshot "Screenshot" "$(basename "$file") · copied to clipboard"
+# The file is saved at this point; if only the clipboard fails, say so and keep the file
+if copy; then
+	notify-send -t 2500 -h string:x-dunst-stack-tag:screenshot "Screenshot" "$(basename "$file") · copied to clipboard"
+else
+	notify-send -t 4000 -h string:x-dunst-stack-tag:screenshot "Screenshot" "$(basename "$file") saved, but couldn't copy it to the clipboard"
+fi

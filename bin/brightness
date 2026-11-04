@@ -2,12 +2,28 @@
 # brightness: brightness keys with an on-screen popup (dunst updates the same popup in place)
 #   brightness up | down
 # Never goes below 5 %, so the screen can't go completely dark.
-# (brightnessctl only takes an absolute value as the minimum, so 5 % of the maximum is computed here.)
-min=$(( $(brightnessctl max) * 5 / 100 ))
+# Uses brightnessctl's first backlight device (ls /sys/class/backlight); on laptops there is one.
+
 case "$1" in
-up)   brightnessctl -q --min-value="$min" set 10%+ ;;
-down) brightnessctl -q --min-value="$min" set 10%- ;;
+up)   step=10%+ ;;
+down) step=10%- ;;
 *) echo "usage: brightness up|down" >&2; exit 1 ;;
 esac
-pct=$(brightnessctl -m | cut -d, -f4 | tr -d %)   # "amdgpu_bl1,backlight,255,100%,255"
+
+# fail MESSAGE: error popup (in place of the normal one), then stop
+fail() {
+	notify-send -u critical -t 4000 -h string:x-dunst-stack-tag:brightness "Brightness" "$1"
+	exit 1
+}
+
+max=$(brightnessctl max 2>/dev/null) || fail "No backlight device found (ls /sys/class/backlight)."
+# brightnessctl only takes an absolute value as the minimum, so 5 % of the maximum
+# is computed here, rounded up (255 -> 13, not 12) so it really is at least 5 %.
+min=$(( (max * 5 + 99) / 100 ))
+
+# -m: print the new state as one line, e.g. "amdgpu_bl1,backlight,255,100%,255"
+out=$(brightnessctl -m --min-value="$min" set "$step" 2>/dev/null) ||
+	fail "Couldn't change the brightness. Is your user allowed to? (see brightnessctl's README)"
+pct=${out#*,*,*,}   # "100%,255"
+pct=${pct%%%*}      # "100"
 notify-send -u low -t 1500 -h string:x-dunst-stack-tag:brightness -h "int:value:$pct" "Brightness $pct%"

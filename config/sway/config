@@ -109,7 +109,7 @@ bindsym $mod+d exec fuzzel
 bindsym $mod+x exec ~/.local/bin/lock
 bindsym $mod+Shift+q kill
 
-# Screenshots (this laptop has no Print key): ~/Pictures/Screenshots/ + clipboard
+# Screenshots (this laptop has no Print key): ~/Pictures/Screenshots/ (or your XDG pictures folder) + clipboard
 #   Super+p: full screen   Super+Shift+p: select a region with the mouse (Esc cancels)
 bindsym $mod+p exec ~/.local/bin/screenshot
 bindsym $mod+Shift+p exec ~/.local/bin/screenshot select

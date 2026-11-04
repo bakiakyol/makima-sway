@@ -1,28 +1,54 @@
 #!/bin/sh
 # volume: volume keys with an on-screen popup (dunst updates the same popup in place)
 #   volume up | down | mute | mic
+# If PipeWire can't be reached, it says so instead of showing a made-up value.
 sink=@DEFAULT_AUDIO_SINK@
 src=@DEFAULT_AUDIO_SOURCE@
 
 case "$1" in
-up)   wpctl set-mute "$sink" 0 2>/dev/null; wpctl set-volume -l 1.0 "$sink" 10%+ 2>/dev/null ;;
-down) wpctl set-volume "$sink" 10%- 2>/dev/null ;;
-mute) wpctl set-mute "$sink" toggle 2>/dev/null ;;
-mic)
-	wpctl set-mute "$src" toggle 2>/dev/null
-	case "$(wpctl get-volume "$src" 2>/dev/null)" in
-	*MUTED*) msg="Microphone off" ;; *) msg="Microphone on" ;;
-	esac
-	notify-send -u low -t 1500 -h string:x-dunst-stack-tag:mic "$msg"
-	exit 0 ;;
+up | down | mute | mic) ;;
 *) echo "usage: volume up|down|mute|mic" >&2; exit 1 ;;
 esac
 
-# i3status (on i3) needs a signal to refresh; Waybar's wireplumber module updates by itself
-pkill -USR1 -x i3status 2>/dev/null
+# fail TAG TITLE: error popup (in place of the normal one), then stop
+fail() {
+	notify-send -u critical -t 4000 -h "string:x-dunst-stack-tag:$1" "$2" \
+		"Can't reach PipeWire. Is it running? (systemctl --user status wireplumber)"
+	exit 1
+}
 
-out=$(wpctl get-volume "$sink" 2>/dev/null)   # "Volume: 0.60" or "Volume: 0.60 [MUTED]"
-vol=$(echo "$out" | awk '{printf "%d", $2 * 100 + 0.5}')
+if [ "$1" = mic ]; then
+	wpctl set-mute "$src" toggle 2>/dev/null || fail mic Microphone
+	out=$(wpctl get-volume "$src" 2>/dev/null) || fail mic Microphone
+	case "$out" in
+	*MUTED*) msg="Microphone off" ;;
+	*) msg="Microphone on" ;;
+	esac
+	notify-send -u low -t 1500 -h string:x-dunst-stack-tag:mic "$msg"
+	exit 0
+fi
+
+case "$1" in
+up)   wpctl set-mute "$sink" 0 && wpctl set-volume -l 1.0 "$sink" 10%+ ;;
+down) wpctl set-volume "$sink" 10%- ;;
+mute) wpctl set-mute "$sink" toggle ;;
+esac 2>/dev/null || fail volume Volume
+
+# i3status (on i3) needs a signal to refresh; Waybar's wireplumber module updates by itself
+[ -z "$WAYLAND_DISPLAY" ] && pkill -USR1 -x i3status 2>/dev/null
+
+out=$(wpctl get-volume "$sink" 2>/dev/null) || fail volume Volume
+# "Volume: 0.60" or "Volume: 0.60 [MUTED]" -> 60 (wpctl always prints two decimals)
+raw=${out#Volume: }
+raw=${raw%% *}
+case "$raw" in
+[0-9].[0-9][0-9]) ;;
+*) fail volume Volume ;;
+esac
+whole=${raw%.*}
+frac=${raw#*.}
+vol=$(( whole * 100 + ${frac#0} ))   # ${frac#0}: "05" -> "5", so it isn't read as octal
+
 case "$out" in
 *MUTED*) msg="Volume muted" ;;
 *) msg="Volume $vol%" ;;

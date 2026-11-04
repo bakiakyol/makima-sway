@@ -1,7 +1,9 @@
 # Keep the large original artwork out of the repo (~14 MB); the scaled copies are enough
 wallpapers/original/
 
-# Personal build notes for my AI agents (Turkish), not needed to use the setup
+# Personal build notes and reviews for my AI agents (Turkish), not needed to use the setup
 PLAN.md
 REVIEW.md
 RECOVERY.md
+ANTIGRAVITY-REVIEW.md
+Codex-proje-inceleme.md
