@@ -1,0 +1,12 @@
+# battery-warning.timer: checks the battery every 2 minutes
+# Source: ~/.config/makima-sway/config/systemd/battery-warning.timer
+# Set up by install.sh. To turn it off: systemctl --user disable --now battery-warning.timer
+[Unit]
+Description=Check the battery every 2 minutes (makima-sway)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

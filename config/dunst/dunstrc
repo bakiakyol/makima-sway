@@ -57,3 +57,9 @@
 	highlight = "#f2a33a"
 	frame_color = "#f2a33a"
 	timeout = 0
+
+# The battery warning (bin/battery-warning) gets through Do Not Disturb:
+# Do Not Disturb pauses dunst at level 50, and this rule lets level 60 through.
+[battery-warning]
+	appname = battery-warning
+	override_pause_level = 60

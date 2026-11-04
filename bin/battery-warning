@@ -1,0 +1,61 @@
+#!/bin/sh
+# battery-warning: a popup when the battery runs low. Run every 2 minutes by a systemd
+# user timer (config/systemd/battery-warning.timer, set up by install.sh).
+#   15 % or less: "Battery low"       (normal popup)
+#    7 % or less: "Battery critical"  (stays until dismissed)
+# Only speaks up when the level gets worse, so it doesn't repeat every 2 minutes.
+# Plugging in the charger replaces the warning with a short "Charging" popup.
+# The popups get through Do Not Disturb (see the [battery-warning] rule in dunstrc).
+# On a machine without a battery it does nothing.
+LOW=15
+CRITICAL=7
+
+# The laptop battery: type "Battery", but not a "Device" one (a wireless mouse, a gamepad)
+bat=
+for d in /sys/class/power_supply/*; do
+	[ "$(cat "$d/type" 2>/dev/null)" = Battery ] || continue
+	[ "$(cat "$d/scope" 2>/dev/null)" = Device ] && continue
+	bat=$d
+	break
+done
+[ -n "$bat" ] && [ -r "$bat/capacity" ] || exit 0
+
+cap=$(cat "$bat/capacity")
+status=$(cat "$bat/status")
+
+# The last warning given ("", low, critical), kept until the next reboot
+state_file="${XDG_RUNTIME_DIR:-/tmp}/battery-warning-$(id -u)"
+last=$(cat "$state_file" 2>/dev/null)
+
+notify() {
+	notify-send -a battery-warning -h string:x-dunst-stack-tag:battery "$@"
+}
+
+if [ "$status" != Discharging ]; then
+	# Charging, full, or not charging: clear the warning
+	[ -n "$last" ] && notify -u low -t 2500 "Charging" "Battery at $cap%"
+	rm -f "$state_file"
+	exit 0
+fi
+
+if [ "$cap" -le "$CRITICAL" ]; then
+	level=critical
+elif [ "$cap" -le "$LOW" ]; then
+	level=low
+else
+	level=
+fi
+
+case "$last:$level" in
+*:critical) [ "$last" = critical ] && exit 0
+	notify -u critical "Battery critical: $cap%" "Plug in the charger now, or the laptop will shut down soon." ;;
+:low) notify -u normal -t 15000 "Battery low: $cap%" "Time to plug in the charger." ;;
+*) ;;   # nothing new to say (already warned, or still above 15 %)
+esac
+
+if [ -n "$level" ]; then
+	# Never step back from critical to low while discharging (the level can jitter)
+	[ "$last" = critical ] || echo "$level" >"$state_file"
+else
+	rm -f "$state_file"
+fi

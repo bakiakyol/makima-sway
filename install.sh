@@ -9,6 +9,7 @@
 #   ~/.config/makima-sway  -> this repo (configs reach the repo through this fixed path)
 #   ~/.config/sway/config, waybar, foot, fuzzel, swaylock  -> files in the repo
 #   ~/.local/bin/*         -> scripts in the repo's bin/
+#   ~/.config/systemd/user/battery-warning.{service,timer} -> low battery popup, enabled
 #
 # An existing file, or a link pointing somewhere else, is never deleted: it is moved
 # next to itself as "<name>.bak-makima-<date>". Links that are already correct are left alone.
@@ -25,7 +26,7 @@ for arg in "$@"; do
 	case "$arg" in
 	-n | --dry-run) DRY_RUN=1 ;;
 	--cursor) CURSOR=1 ;;
-	-h | --help) sed -n '2,16p' "$0"; exit 0 ;;
+	-h | --help) sed -n '2,17p' "$0"; exit 0 ;;
 	*) echo "unknown option: $arg (help: ./install.sh -h)" >&2; exit 1 ;;
 	esac
 done
@@ -76,6 +77,20 @@ echo "Scripts (~/.local/bin):"
 for script in "$REPO"/bin/*; do
 	link "$M/bin/$(basename "$script")" "$HOME/.local/bin/$(basename "$script")"
 done
+
+echo
+echo "Battery warning (systemd user timer):"
+link "$M/config/systemd/battery-warning.service" "$HOME/.config/systemd/user/battery-warning.service"
+link "$M/config/systemd/battery-warning.timer"   "$HOME/.config/systemd/user/battery-warning.timer"
+if ! systemctl --user show-environment >/dev/null 2>&1; then
+	echo "  skipped  no systemd user session; run ~/.local/bin/battery-warning every few minutes some other way"
+elif systemctl --user is-enabled -q battery-warning.timer 2>/dev/null; then
+	echo "  ok       battery-warning.timer is enabled"
+else
+	echo "  enable   battery-warning.timer"
+	run systemctl --user daemon-reload
+	run systemctl --user enable --now battery-warning.timer
+fi
 
 if [ "$CURSOR" = 1 ]; then
 	echo

@@ -94,6 +94,7 @@ That shaped the design rules:
 - **Semi-transparent terminal.** foot at 93 % opacity with a crimson block cursor and a matching bash prompt.
 - **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed. Pick the connected network to disconnect, or a saved one to forget it (that is also how you enter a new password after it changed).
 - **Notifications by urgency.** Volume and brightness popups get an amber progress bar. Critical alerts get an oxblood background and stay until you dismiss them.
+- **Low battery warning.** A popup at 15 % and a critical one that stays at 7 %, once per level instead of every few minutes, and it gets through Do Not Disturb. Checked every 2 minutes by a systemd user timer; does nothing on a machine without a battery.
 - **Lock screen.** A blurred, darkened copy of the wallpaper with a palette-colored ring. It locks after 10 min idle and before suspend, and the screen turns off at 11 min.
 - **Screenshots.** Full screen or a selected region, saved to `~/Pictures/Screenshots/` (your XDG pictures folder, if you have one) and copied to the clipboard. Two shots in the same second never overwrite each other.
 - **Dropdown terminal.** A floating scratchpad terminal toggled with one key.
@@ -229,7 +230,10 @@ cd ~/makima-sway
   ~/.config/fuzzel/fuzzel.ini     -> ~/.config/makima-sway/config/fuzzel/fuzzel.ini
   ~/.config/swaylock/config       -> ~/.config/makima-sway/config/swaylock/config
   ~/.local/bin/<script>           -> ~/.config/makima-sway/bin/<script>
+  ~/.config/systemd/user/battery-warning.{service,timer} -> ~/.config/makima-sway/config/systemd/...
   ```
+
+- **Enables the battery warning timer** (`systemctl --user enable --now battery-warning.timer`). To turn it off: `systemctl --user disable --now battery-warning.timer`.
 
 - **Never deletes anything.** If a file already exists, it is moved to `<name>.bak-makima-<date>`. A link that is already correct is left alone, so running the script twice is safe.
 - With **`--cursor`**, it downloads [Bibata Modern Amber v2.0.7](https://github.com/ful1e5/Bibata_Cursor/releases/tag/v2.0.7) and recolors it into `~/.local/share/icons/Makima-Crimson`. The recolored cursor files are not stored in this repo.
@@ -345,6 +349,7 @@ All scripts live in `bin/` and are linked into `~/.local/bin`:
 | `lock` | `swaylock` on Wayland, `i3lock` on X11 |
 | `screenshot [select]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` (or your XDG pictures folder) and copies to the clipboard |
 | `dropdown-terminal` | Toggles a floating 900×500 scratchpad terminal (foot on Sway, st on i3) |
+| `battery-warning` | Low battery popup at 15 % and 7 % (once per level), run every 2 minutes by `battery-warning.timer` |
 | `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed. Connected / saved networks offer Disconnect / Connect / Forget |
 
 The shared scripts check `$WAYLAND_DISPLAY`, so the same file works under both i3 and Sway.
@@ -426,6 +431,7 @@ makima-sway/
 │   ├── fuzzel/fuzzel.ini      # launcher look
 │   ├── dunst/dunstrc          # notifications (started directly by sway)
 │   ├── swaylock/config        # lock screen ring colors
+│   ├── systemd/               # battery-warning timer (low battery popup)
 │   ├── bash/makima-prompt.sh  # optional prompt for foot
 │   └── bash_profile           # example: autostart sway on tty2
 ├── bin/                       # helper scripts (linked into ~/.local/bin)
