@@ -7,3 +7,6 @@ REVIEW.md
 RECOVERY.md
 ANTIGRAVITY-REVIEW.md
 Codex-proje-inceleme.md
+
+# Python bytecode (from running the scripts)
+__pycache__/
