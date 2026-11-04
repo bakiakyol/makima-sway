@@ -53,7 +53,7 @@ It was built for a weak laptop:
 That shaped the design rules:
 
 - **No blur, no shadows, no animations.** Plain Sway, not SwayFX or Hyprland.
-- **Transparency only where it's cheap.** The terminal (93 %) and the bar (92 %) are slightly see-through, with no blur behind them. Everything else is opaque.
+- **Transparency only where it's cheap.** The terminal (93 %), Firefox (93 %) and the bar (92 %) are slightly see-through, with no blur behind them. Everything else is opaque.
 - **Fast, GTK-free tools where possible.** foot, fuzzel, and dunst all start instantly.
 - **Expensive work happens once, ahead of time.** The lock screen blur is baked into an image with ffmpeg, and the wallpaper is pre-scaled to the screen size (~4 MB in memory instead of ~33 MB).
 
@@ -92,6 +92,7 @@ That shaped the design rules:
 - **Thin top bar.** A 24 px Waybar strip. The clock shows a month calendar on hover. Click the Wi-Fi icon for the network menu, scroll on volume or brightness to change them, click volume to mute.
 - **Gaps and thin borders.** No title bars. The focused window gets a crimson 2 px border, and the wallpaper shows through the gaps.
 - **Semi-transparent terminal.** foot at 93 % opacity with a crimson block cursor and a matching bash prompt.
+- **Firefox to match.** The tab strip, address bar and menus use the terminal colors (a `userChrome.css`), and Sway shows the whole window at 93 %, like foot. Sway can only fade a window as a whole, so page text is 93 % too; delete the `for_window [app_id="firefox"]` line in the Sway config if you want it solid.
 - **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed. Pick the connected network to disconnect, or a saved one to forget it (that is also how you enter a new password after it changed).
 - **Notifications by urgency.** Volume and brightness popups get an amber progress bar. Critical alerts get an oxblood background and stay until you dismiss them.
 - **Low battery warning.** A popup at 15 % and a critical one that stays at 7 %, once per level instead of every few minutes, and it gets through Do Not Disturb. Checked every 2 minutes by a systemd user timer; does nothing on a machine without a battery.
@@ -497,6 +498,7 @@ makima-sway/
 │   ├── fuzzel/fuzzel.ini      # launcher look
 │   ├── dunst/dunstrc          # notifications (started directly by sway)
 │   ├── swaylock/config        # lock screen ring colors
+│   ├── firefox/userChrome.css # tab strip + address bar in the palette
 │   ├── systemd/               # battery-warning timer (low battery popup)
 │   ├── bash/makima-prompt.sh  # optional prompt for foot
 │   └── bash_profile           # example: autostart sway on tty2

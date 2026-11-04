@@ -8,6 +8,7 @@
 # What it does:
 #   ~/.config/makima-sway  -> this repo (configs reach the repo through this fixed path)
 #   ~/.config/sway/config, waybar, foot, fuzzel, swaylock  -> files in the repo
+#   <firefox profile>/chrome/userChrome.css -> palette for the tab strip (+ one pref in user.js)
 #   ~/.local/bin/*         -> scripts in the repo's bin/
 #   ~/.config/systemd/user/battery-warning.{service,timer} -> low battery popup, enabled
 #
@@ -26,7 +27,7 @@ for arg in "$@"; do
 	case "$arg" in
 	-n | --dry-run) DRY_RUN=1 ;;
 	--cursor) CURSOR=1 ;;
-	-h | --help) sed -n '2,17p' "$0"; exit 0 ;;
+	-h | --help) sed -n '2,18p' "$0"; exit 0 ;;
 	*) echo "unknown option: $arg (help: ./install.sh -h)" >&2; exit 1 ;;
 	esac
 done
@@ -72,6 +73,39 @@ link "$M/config/fuzzel/fuzzel.ini"   "$HOME/.config/fuzzel/fuzzel.ini"
 link "$M/config/swaylock/config"     "$HOME/.config/swaylock/config"
 # No link for dunst: Sway starts it directly with "dunst --config ~/.config/makima-sway/...",
 # so a dunst setup you use on another desktop (like i3) stays untouched.
+
+echo
+echo "Firefox (tab strip colors):"
+# Firefox 147+ keeps profiles in ~/.config/mozilla/firefox, older ones in ~/.mozilla/firefox.
+# The profile Firefox actually opens is the "Default=" of an [Install...] section.
+ff_profile=
+for ff_dir in "$HOME/.config/mozilla/firefox" "$HOME/.mozilla/firefox"; do
+	[ -f "$ff_dir/profiles.ini" ] || continue
+	ff_rel=$(awk -F= '/^\[Install/ { inst = 1; next } /^\[/ { inst = 0 } inst && $1 == "Default" { print $2; exit }' "$ff_dir/profiles.ini")
+	case "$ff_rel" in
+	"") continue ;;
+	/*) ff_profile=$ff_rel ;;
+	*) ff_profile="$ff_dir/$ff_rel" ;;
+	esac
+	[ -d "$ff_profile" ] && break
+	ff_profile=
+done
+if [ -z "$ff_profile" ]; then
+	echo "  skipped  no Firefox profile found (open Firefox once, then run ./install.sh again)"
+else
+	link "$M/config/firefox/userChrome.css" "$ff_profile/chrome/userChrome.css"
+	# Firefox ignores userChrome.css unless this pref is on. Only appended, never rewritten.
+	ff_pref='user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);'
+	if [ -f "$ff_profile/user.js" ] && grep -qF "$ff_pref" "$ff_profile/user.js"; then
+		echo "  ok       $ff_profile/user.js"
+	else
+		echo "  append   userChrome.css pref -> $ff_profile/user.js"
+		if [ "$DRY_RUN" = 0 ]; then
+			printf '\n// makima-sway: let Firefox read chrome/userChrome.css\n%s\n' "$ff_pref" >>"$ff_profile/user.js"
+		fi
+	fi
+	echo "  note     restart Firefox to see the change"
+fi
 
 echo
 echo "Scripts (~/.local/bin):"

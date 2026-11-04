@@ -135,6 +135,11 @@ bindsym $mod+u exec ~/.local/bin/dropdown-terminal
 # Sized in percent of the screen (66 % x 65 %: about 900x500 on 1366x768), so it scales on bigger screens.
 for_window [app_id="dropdown"] floating enable, resize set 66 ppt 65 ppt, move position center, move scratchpad, scratchpad show
 
+# Firefox at 93 %, like the terminal. This fades the whole window (text included);
+# config/firefox/userChrome.css paints the tab strip in the terminal color so the top matches foot.
+# Back to fully opaque: delete this line, or run: swaymsg '[app_id="firefox"] opacity 1'
+for_window [app_id="firefox"] opacity 0.93
+
 # ---------- focus and move (j k l ş + arrows) ----------
 # "ş" (scedilla) sits where ";" is on a US keyboard, so this is i3's default j k l ;
 bindsym $mod+j focus left

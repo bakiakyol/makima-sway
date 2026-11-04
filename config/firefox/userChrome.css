@@ -1,0 +1,56 @@
+/* userChrome.css: Firefox's tab strip, address bar and menus in the makima palette.
+ *
+ * Installed by install.sh as <profile>/chrome/userChrome.css (a symlink to this file).
+ * Firefox only reads it when this pref is true (install.sh adds it to the profile's user.js):
+ *   toolkit.legacyUserProfileCustomizations.stylesheets = true
+ *
+ * The colors here are solid. The see-through look comes from Sway
+ * (for_window [app_id="firefox"] opacity 0.93), so the top of Firefox ends up
+ * exactly like the terminal: #140b07 at 93 %.
+ * Changes need a Firefox restart.
+ */
+
+:root {
+	/* Tab strip and toolbars */
+	--lwt-accent-color: #140b07 !important;
+	--lwt-text-color: #e8dccb !important;
+	--toolbar-bgcolor: #140b07 !important;
+	--toolbar-color: #e8dccb !important;
+	--tab-selected-bgcolor: #3a231a !important;
+	--tab-selected-textcolor: #e8dccb !important;
+
+	/* Address bar and search fields */
+	--toolbar-field-background-color: #22140e !important;
+	--toolbar-field-color: #e8dccb !important;
+	--toolbar-field-focus-background-color: #22140e !important;
+	--toolbar-field-focus-color: #e8dccb !important;
+	--toolbar-field-focus-border-color: #e22e0e !important;
+	--urlbarView-highlight-background: #3a231a !important;
+	--urlbarView-highlight-color: #e8dccb !important;
+
+	/* Menus and popups (the ≡ menu, extensions, downloads) */
+	--arrowpanel-background: #140b07 !important;
+	--arrowpanel-color: #e8dccb !important;
+	--arrowpanel-border-color: #3a231a !important;
+
+	/* Keyboard focus ring and accent */
+	--focus-outline-color: #e22e0e !important;
+	--toolbarbutton-icon-fill-attention: #e22e0e !important;
+}
+
+/* Some Firefox themes paint the toolbars directly; force the palette color */
+#navigator-toolbox,
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar,
+#sidebar-main,
+#sidebar-box {
+	background-color: #140b07 !important;
+	color: #e8dccb !important;
+}
+
+/* Selected tab: slightly lighter, with a thin crimson line on top */
+.tab-background:is([selected], [multiselected]) {
+	background: #3a231a !important;
+	box-shadow: inset 0 2px 0 #e22e0e !important;
+}
