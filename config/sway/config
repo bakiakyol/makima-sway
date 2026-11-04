@@ -1,0 +1,205 @@
+# ~/.config/sway/config: makima-sway
+# Source: ~/.config/makima-sway/config/sway/config (tracked in git).
+# ~/.config/sway/config is a symlink to it.
+#
+# Converted from my i3 config, with the same keybindings.
+# Colors: the Makima palette (~/.config/makima-sway/design/palette.md).
+#
+# After editing: Super+Shift+c (reload).
+# To check for errors: sway --validate
+
+set $mod Mod4
+
+font pango:JetBrainsMono Nerd Font Mono 9
+
+# ---------- colors (Makima palette) ----------
+set $night   #140b07
+set $surface #22140e
+set $border  #3a231a
+set $muted   #9f7f70
+set $text    #e8dccb
+set $crimson #e22e0e
+set $oxblood #7f1d06
+set $amber   #f2a33a
+
+# ---------- keyboard, touchpad, cursor, wallpaper ----------
+# Turkish Q layout. Change "tr" to your own layout (us, de, ...).
+input type:keyboard {
+	xkb_layout tr
+}
+
+# Touchpad: tap to click, normal scroll direction, ignore while typing.
+input type:touchpad {
+	tap enabled
+	natural_scroll disabled
+	dwt enabled
+}
+
+# Mouse cursor: Makima-Crimson, 24 px. Bibata Modern Amber recolored to the palette's
+# crimson (#e22e0e), installed in ~/.local/share/icons/Makima-Crimson by "install.sh --cursor".
+# Sway also passes it to the apps it starts as XCURSOR_THEME/XCURSOR_SIZE.
+seat seat0 xcursor_theme Makima-Crimson 24
+# GTK3 apps (like Firefox) read the cursor from here on Wayland
+exec_always gsettings set org.gnome.desktop.interface cursor-theme Makima-Crimson
+exec_always gsettings set org.gnome.desktop.interface cursor-size 24
+
+# Wallpaper. "fill": cover the screen and crop the overflow.
+# The image is pre-scaled to 1366x768 so it takes little memory.
+output * bg ~/.config/makima-sway/wallpapers/makima-torii.jpg fill
+
+# ---------- general ----------
+focus_follows_mouse yes
+mouse_warping output
+workspace_auto_back_and_forth no
+workspace_layout default
+
+# ---------- borders and gaps ----------
+# No title bars, just a 2 px border. The focused window is crimson, the rest are dark.
+# (Title bars still show in the stacking and tabbed layouts, Super+s and Super+w.)
+default_border pixel 2
+default_floating_border pixel 2
+title_align left
+
+# 6 px between windows, 4 px to the screen edge: the wallpaper shows through the gaps.
+gaps inner 6
+gaps outer 4
+# Keep the border even with a single window, so it's always clear what has focus
+hide_edge_borders none
+
+floating_modifier $mod normal
+tiling_drag enable
+
+# Window colors:         border    title-bg  title-text  split-indicator  child-border
+client.focused           $crimson  $crimson  $night      $amber           $crimson
+client.focused_inactive  $border   $surface  $muted      $border          $border
+client.unfocused         $surface  $night    $muted      $surface         $surface
+client.urgent            $amber    $amber    $night      $amber           $amber
+
+# ---------- startup ----------
+# Arch's stock snippet: exports WAYLAND_DISPLAY, SWAYSOCK and XDG_CURRENT_DESKTOP
+# to systemd and D-Bus, so dunst and other services can find the display.
+include /etc/sway/config.d/*
+
+# Notifications: dunst with a config file of its own (Makima colors).
+# --config also stops dunst from reading ~/.config/dunst, so another desktop's
+# dunst setup (i3 in my case) stays untouched.
+exec dunst --config ~/.config/makima-sway/config/dunst/dunstrc
+
+# Idle:
+#   600 s (10 min): lock
+#   660 s (11 min): screen off, back on with any key or mouse move
+#   before suspend / lid close: lock
+# The "lock" script (shared with i3) runs swaylock on Sway; its look is in ~/.config/swaylock/config.
+exec swayidle -w \
+	timeout 600 '~/.local/bin/lock' \
+	timeout 660 'swaymsg "output * power off"' resume 'swaymsg "output * power on"' \
+	before-sleep '~/.local/bin/lock'
+
+# ---------- volume and brightness keys (popups via dunst) ----------
+bindsym XF86AudioRaiseVolume exec ~/.local/bin/volume up
+bindsym XF86AudioLowerVolume exec ~/.local/bin/volume down
+bindsym XF86AudioMute exec ~/.local/bin/volume mute
+bindsym XF86AudioMicMute exec ~/.local/bin/volume mic
+bindsym XF86MonBrightnessUp exec ~/.local/bin/brightness up
+bindsym XF86MonBrightnessDown exec ~/.local/bin/brightness down
+
+# ---------- apps ----------
+bindsym $mod+Return exec foot
+bindsym $mod+d exec fuzzel
+bindsym $mod+x exec ~/.local/bin/lock
+bindsym $mod+Shift+q kill
+
+# Screenshots (this laptop has no Print key): ~/Pictures/Screenshots/ + clipboard
+#   Super+p: full screen   Super+Shift+p: select a region with the mouse (Esc cancels)
+bindsym $mod+p exec ~/.local/bin/screenshot
+bindsym $mod+Shift+p exec ~/.local/bin/screenshot select
+
+# Dropdown terminal (Super+u toggles it)
+bindsym $mod+u exec ~/.local/bin/dropdown-terminal
+
+# ---------- window rules ----------
+# Dropdown terminal: a floating 900x500 window in the middle, kept in the scratchpad.
+for_window [app_id="dropdown"] floating enable, resize set 900 500, move position center, move scratchpad, scratchpad show
+
+# ---------- focus and move (j k l ş + arrows) ----------
+# "ş" (scedilla) sits where ";" is on a US keyboard, so this is i3's default j k l ;
+bindsym $mod+j focus left
+bindsym $mod+k focus down
+bindsym $mod+l focus up
+bindsym $mod+scedilla focus right
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+bindsym $mod+Shift+j move left
+bindsym $mod+Shift+k move down
+bindsym $mod+Shift+l move up
+bindsym $mod+Shift+scedilla move right
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# ---------- layout ----------
+bindsym $mod+h splith
+bindsym $mod+v splitv
+bindsym $mod+f fullscreen toggle
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+bindsym $mod+a focus parent
+
+# ---------- workspaces ----------
+bindsym $mod+1 workspace number 1
+bindsym $mod+2 workspace number 2
+bindsym $mod+3 workspace number 3
+bindsym $mod+4 workspace number 4
+bindsym $mod+5 workspace number 5
+bindsym $mod+6 workspace number 6
+bindsym $mod+7 workspace number 7
+bindsym $mod+8 workspace number 8
+bindsym $mod+9 workspace number 9
+bindsym $mod+0 workspace number 10
+
+bindsym $mod+Shift+1 move container to workspace number 1
+bindsym $mod+Shift+2 move container to workspace number 2
+bindsym $mod+Shift+3 move container to workspace number 3
+bindsym $mod+Shift+4 move container to workspace number 4
+bindsym $mod+Shift+5 move container to workspace number 5
+bindsym $mod+Shift+6 move container to workspace number 6
+bindsym $mod+Shift+7 move container to workspace number 7
+bindsym $mod+Shift+8 move container to workspace number 8
+bindsym $mod+Shift+9 move container to workspace number 9
+bindsym $mod+Shift+0 move container to workspace number 10
+
+# ---------- sway itself ----------
+# Sway has no "restart"; reload does the same job.
+bindsym $mod+Shift+c reload
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit sway? This ends your Wayland session.' -B 'Yes, exit' 'swaymsg exit'
+
+mode "resize" {
+	bindsym j resize shrink width 10px
+	bindsym k resize grow height 10px
+	bindsym l resize shrink height 10px
+	bindsym scedilla resize grow width 10px
+
+	bindsym Left resize shrink width 10px
+	bindsym Down resize grow height 10px
+	bindsym Up resize shrink height 10px
+	bindsym Right resize grow width 10px
+
+	bindsym Return mode "default"
+	bindsym Escape mode "default"
+	bindsym $mod+r mode "default"
+}
+bindsym $mod+r mode "resize"
+
+# ---------- bar ----------
+# Waybar. Its config: ~/.config/waybar/config.jsonc and style.css
+# Sway starts Waybar instead of its own bar, and restarts it on reload.
+bar {
+	swaybar_command waybar
+}

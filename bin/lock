@@ -1,0 +1,17 @@
+#!/bin/sh
+# lock: locks the screen. Works on both Sway and i3 (decided by $WAYLAND_DISPLAY).
+
+if [ -n "$WAYLAND_DISPLAY" ]; then
+	# Sway: swaylock. Its look is in ~/.config/swaylock/config (Makima palette).
+	# -f: fork to the background once the lock screen is up. This is how swayidle
+	#     knows the screen is locked, and suspend waits for it.
+	# -i: background image (blurred wallpaper). swaylock can't expand ~ or $HOME in its
+	#     config file, so the path is passed here. If it's missing, swaylock uses a plain color.
+	exec swaylock -f -i "$HOME/.config/makima-sway/wallpapers/makima-torii-lock.jpg"
+fi
+
+# i3: i3lock with the background color of the current st theme (used by Super+x and xss-lock)
+state="${XDG_STATE_HOME:-$HOME/.local/state}/st-tema"
+if [ "$(cat "$state" 2>/dev/null)" = light ]; then color=fbf1c7; else color=282828; fi
+# -n: don't fork (xss-lock waits)  -e: ignore empty password  -f: show failed attempts
+exec i3lock -n -e -f -c "$color"

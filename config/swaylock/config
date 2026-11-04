@@ -1,0 +1,60 @@
+# ~/.config/swaylock/config: lock screen, Makima palette
+# Source: ~/.config/makima-sway/config/swaylock/config
+# Each line is a swaylock command-line option without the "--". All options: "man swaylock"
+# Color format: RRGGBB or RRGGBBAA (last two digits are alpha)
+
+# The background image isn't set here but in the "lock" script (-i), because swaylock
+# doesn't expand ~ or $HOME in this file and the path differs on every machine.
+# Image: a blurred, darkened copy of the wallpaper (wallpapers/makima-torii-lock.jpg).
+# The blur is baked in with ffmpeg ahead of time, so the GPU does no work while locking.
+scaling=fill
+# Plain background if the image is missing
+color=140b07
+
+# Don't count an empty Enter as a failed attempt; show the number of failed attempts
+ignore-empty-password
+show-failed-attempts
+
+font=JetBrainsMono Nerd Font
+font-size=18
+
+# The ring in the middle: visible while idle too, not only while typing
+indicator-idle-visible
+indicator-radius=90
+indicator-thickness=8
+
+# Idle: dark inside, oxblood ring
+inside-color=140b07cc
+ring-color=7f1d06
+line-color=00000000
+separator-color=00000000
+text-color=e8dccb
+
+# Key press: an amber segment on the ring; backspace: crimson
+key-hl-color=f2a33a
+bs-hl-color=e22e0e
+
+# Checking the password
+inside-ver-color=140b07cc
+ring-ver-color=f2a33a
+line-ver-color=00000000
+text-ver-color=f2a33a
+
+# Wrong password
+inside-wrong-color=140b07cc
+ring-wrong-color=e22e0e
+line-wrong-color=00000000
+text-wrong-color=e22e0e
+
+# Input cleared
+inside-clear-color=140b07cc
+ring-clear-color=9f7f70
+line-clear-color=00000000
+text-clear-color=9f7f70
+
+# Caps Lock on
+caps-lock-key-hl-color=c56b46
+caps-lock-bs-hl-color=e22e0e
+inside-caps-lock-color=140b07cc
+ring-caps-lock-color=c56b46
+text-caps-lock-color=c56b46

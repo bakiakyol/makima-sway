@@ -1,0 +1,27 @@
+#!/bin/sh
+# screenshot [select]: saves to ~/Pictures/Screenshots/ and copies to the clipboard.
+# Works on both Sway (grim, slurp, wl-copy) and i3 (maim, xclip), decided by $WAYLAND_DISPLAY.
+dir="$HOME/Pictures/Screenshots"; mkdir -p "$dir"
+file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
+
+if [ -n "$WAYLAND_DISPLAY" ]; then
+	# Sway
+	if [ "$1" = select ]; then
+		# -b: dim  -c: border (crimson)  -s: selected area  -w: border width
+		area=$(slurp -b 140b0799 -c e22e0eff -s f2a33a22 -w 2) || exit 0   # Esc cancels
+		grim -g "$area" "$file"
+	else
+		grim "$file"
+	fi
+	wl-copy --type image/png <"$file"
+else
+	# i3
+	if [ "$1" = select ]; then
+		maim -s -u "$file" || exit 0        # Esc cancels
+	else
+		maim -u "$file"
+	fi
+	xclip -selection clipboard -t image/png -i "$file"
+fi
+
+notify-send -t 2500 -h string:x-dunst-stack-tag:screenshot "Screenshot" "$(basename "$file") · copied to clipboard"

@@ -1,0 +1,91 @@
+// ~/.config/waybar/config.jsonc: thin Makima-themed top strip
+// Source: ~/.config/makima-sway/config/waybar/config.jsonc
+// Look (colors, spacing): style.css
+// Icons come from JetBrainsMono Nerd Font.
+{
+	"layer": "top",
+	"position": "top",
+	"height": 24,
+	"spacing": 0,
+
+	// Left: workspaces and the current mode (like resize mode)
+	"modules-left": ["sway/workspaces", "sway/mode"],
+	// Center: date and time
+	"modules-center": ["clock"],
+	// Right: Wi-Fi, volume, brightness, battery
+	"modules-right": ["network", "wireplumber", "backlight", "battery"],
+
+	"sway/workspaces": {
+		"disable-scroll": true,
+		"all-outputs": true,
+		// Always show 1-5, even when empty
+		"persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] },
+		"format": "{name}"
+	},
+
+	"sway/mode": {
+		"format": "{}"
+	},
+
+	"clock": {
+		// Example: Wed  4 Nov  07:31
+		// (To follow your system language instead, use "{:L%a %e %b  %H:%M}" and set "locale".)
+		"format": "{:%a %e %b  %H:%M}",
+		"interval": 30,
+		// Month calendar on hover
+		"tooltip-format": "<tt>{calendar}</tt>",
+		"calendar": {
+			"mode": "month",
+			"weeks-pos": "",
+			"format": {
+				"months": "<span color='#e8dccb'><b>{}</b></span>",
+				"weekdays": "<span color='#9f7f70'>{}</span>",
+				"today": "<span color='#e22e0e'><b>{}</b></span>"
+			}
+		}
+	},
+
+	// Works with iwd. Click to open the Wi-Fi menu (~/.config/makima-sway/bin/wifi-menu).
+	// Change "interface" to yours (ip -br link).
+	"network": {
+		"interface": "wlan0",
+		"on-click": "~/.local/bin/wifi-menu",
+		"format-wifi": "󰖩 {essid}",
+		"format-disconnected": "󰖪 off",
+		"tooltip-format-wifi": "{essid}  signal {signalStrength}%\n{ipaddr}",
+		"tooltip-format-disconnected": "Disconnected",
+		"interval": 10
+	},
+
+	// PipeWire volume. Updates by itself when the volume changes, no signal needed.
+	"wireplumber": {
+		"format": "{icon} {volume}%",
+		"format-muted": "󰝟 muted",
+		"format-icons": ["󰕿", "󰖀", "󰕾"],
+		"on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+		"scroll-step": 5,
+		"max-volume": 100
+	},
+
+	// Scroll to change brightness via the "brightness" script (it keeps a 5 % minimum).
+	// Change "device" to yours (ls /sys/class/backlight).
+	"backlight": {
+		"device": "amdgpu_bl1",
+		"format": "󰃠 {percent}%",
+		"on-scroll-up": "~/.local/bin/brightness up",
+		"on-scroll-down": "~/.local/bin/brightness down"
+	},
+
+	// Change "bat" and "adapter" to yours (ls /sys/class/power_supply).
+	"battery": {
+		"bat": "BAT1",
+		"adapter": "ADP1",
+		"interval": 30,
+		"states": { "warning": 30, "critical": 15 },
+		"format": "{icon} {capacity}%",
+		"format-charging": "󰂄 {capacity}%",
+		"format-plugged": "󰚥 {capacity}%",
+		"format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+		"tooltip-format": "{timeTo}"
+	}
+}

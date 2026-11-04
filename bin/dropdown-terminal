@@ -1,0 +1,20 @@
+#!/bin/sh
+# dropdown-terminal: toggles a floating terminal in the middle of the screen (scratchpad).
+# Starts it on the first press. Works on both Sway (foot) and i3 (st), decided by $WAYLAND_DISPLAY.
+
+if [ -n "$WAYLAND_DISPLAY" ]; then
+	# Sway: foot with app_id "dropdown". The window rule is in the sway config:
+	#   for_window [app_id="dropdown"] ...
+	if pgrep -f 'foot --app-id dropdown' >/dev/null; then
+		swaymsg -q '[app_id="dropdown"] scratchpad show, move position center'
+	else
+		exec foot --app-id dropdown
+	fi
+else
+	# i3: st with class "dropdown"
+	if pgrep -f 'st -c dropdown' >/dev/null; then
+		i3-msg -q '[class="dropdown"] scratchpad show, move position center'
+	else
+		exec "$HOME/.local/bin/st" -c dropdown
+	fi
+fi

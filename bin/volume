@@ -1,0 +1,30 @@
+#!/bin/sh
+# volume: volume keys with an on-screen popup (dunst updates the same popup in place)
+#   volume up | down | mute | mic
+sink=@DEFAULT_AUDIO_SINK@
+src=@DEFAULT_AUDIO_SOURCE@
+
+case "$1" in
+up)   wpctl set-mute "$sink" 0 2>/dev/null; wpctl set-volume -l 1.0 "$sink" 10%+ 2>/dev/null ;;
+down) wpctl set-volume "$sink" 10%- 2>/dev/null ;;
+mute) wpctl set-mute "$sink" toggle 2>/dev/null ;;
+mic)
+	wpctl set-mute "$src" toggle 2>/dev/null
+	case "$(wpctl get-volume "$src" 2>/dev/null)" in
+	*MUTED*) msg="Microphone off" ;; *) msg="Microphone on" ;;
+	esac
+	notify-send -u low -t 1500 -h string:x-dunst-stack-tag:mic "$msg"
+	exit 0 ;;
+*) echo "usage: volume up|down|mute|mic" >&2; exit 1 ;;
+esac
+
+# i3status (on i3) needs a signal to refresh; Waybar's wireplumber module updates by itself
+pkill -USR1 -x i3status 2>/dev/null
+
+out=$(wpctl get-volume "$sink" 2>/dev/null)   # "Volume: 0.60" or "Volume: 0.60 [MUTED]"
+vol=$(echo "$out" | awk '{printf "%d", $2 * 100 + 0.5}')
+case "$out" in
+*MUTED*) msg="Volume muted" ;;
+*) msg="Volume $vol%" ;;
+esac
+notify-send -u low -t 1500 -h string:x-dunst-stack-tag:volume -h "int:value:$vol" "$msg"

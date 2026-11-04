@@ -1,0 +1,113 @@
+/*
+ * ~/.config/waybar/style.css: Makima palette, one thin strip
+ * Source: ~/.config/makima-sway/config/waybar/style.css
+ * Colors: ~/.config/makima-sway/design/palette.md
+ *
+ * Waybar uses GTK, so this is GTK CSS (a subset of web CSS).
+ * No animations or shadows: the GPU is weak.
+ */
+
+/* The palette, defined once and used by name below */
+@define-color night   #140b07;
+@define-color surface #22140e;
+@define-color border  #3a231a;
+@define-color muted   #9f7f70;
+@define-color text    #e8dccb;
+@define-color crimson #e22e0e;
+@define-color oxblood #7f1d06;
+@define-color amber   #f2a33a;
+@define-color copper  #c56b46;
+@define-color teal    #4f8f88;
+@define-color green   #8fa86b;
+
+/* Defaults for everything: reset the GTK theme's borders and corners */
+* {
+	font-family: "JetBrainsMono Nerd Font";
+	font-size: 13px;
+	min-height: 0;
+	border: none;
+	border-radius: 0;
+	box-shadow: none;
+	text-shadow: none;
+}
+
+/* The strip itself: dark, slightly transparent, with a thin oxblood line underneath */
+window#waybar {
+	background-color: alpha(@night, 0.92);
+	color: @text;
+	border-bottom: 1px solid @oxblood;
+}
+
+tooltip {
+	background-color: @surface;
+	border: 1px solid @oxblood;
+}
+tooltip label {
+	color: @text;
+}
+
+/* ---------- left: workspaces ---------- */
+#workspaces button {
+	padding: 0 8px;
+	color: @muted;
+	background: transparent;
+}
+/* The workspace you're on: a crimson block */
+#workspaces button.focused {
+	background-color: @crimson;
+	color: @night;
+	font-weight: bold;
+}
+/* Workspaces with windows but no focus are a bit brighter */
+#workspaces button:not(.empty):not(.focused) {
+	color: @text;
+}
+/* A window asking for attention (urgent) */
+#workspaces button.urgent {
+	background-color: @amber;
+	color: @night;
+}
+/* Turn off GTK's default hover effect (a gradient) */
+#workspaces button:hover {
+	background: @border;
+	color: @text;
+}
+
+/* Shown while a mode such as resize is active */
+#mode {
+	background-color: @copper;
+	color: @night;
+	padding: 0 8px;
+	font-weight: bold;
+}
+
+/* ---------- center: clock ---------- */
+#clock {
+	font-weight: bold;
+}
+
+/* ---------- right: thin separators between modules ---------- */
+#network,
+#wireplumber,
+#backlight,
+#battery {
+	padding: 0 10px;
+	border-left: 1px solid @border;
+}
+
+#network              { color: @teal; }
+#network.disconnected { color: @muted; }
+
+#wireplumber       { color: @amber; }
+#wireplumber.muted { color: @muted; }
+
+#backlight { color: @text; }
+
+#battery                         { color: @text; }
+#battery.charging,
+#battery.plugged                 { color: @green; }
+#battery.warning:not(.charging)  { color: @copper; }
+#battery.critical:not(.charging) {
+	color: @crimson;
+	font-weight: bold;
+}

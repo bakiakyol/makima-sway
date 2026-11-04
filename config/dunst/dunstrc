@@ -1,0 +1,59 @@
+# dunst config for Sway: Makima palette
+# Source: ~/.config/makima-sway/config/dunst/dunstrc
+# Sway starts dunst with "dunst --config <this file>". --config disables the search
+# for other config files, so ~/.config/dunst (used by another desktop, i3 in my case)
+# never mixes in, and this file never affects that desktop either.
+
+[global]
+	font = JetBrainsMono Nerd Font Mono 10
+	# Top-right corner, just below the bar
+	origin = top-right
+	offset = (12, 36)
+	width = 320
+	notification_limit = 4
+	padding = 8
+	horizontal_padding = 10
+	frame_width = 1
+	separator_height = 1
+	corner_radius = 0
+	markup = full
+	format = "<b>%s</b>\n%b"
+	icon_position = off
+	idle_threshold = 120
+	show_age_threshold = 60
+	mouse_left_click = close_current
+	mouse_right_click = close_all
+
+	# Colors (Makima palette)
+	frame_color = "#7f1d06"
+	# 6 px between notifications, so each one is its own box with its own border color
+	gap_size = 6
+	# (Without the gap, the line between them would be this color)
+	separator_color = "#3a231a"
+	# Progress bar in the volume and brightness popups
+	progress_bar_height = 6
+	progress_bar_frame_width = 0
+
+# Low: passing popups like volume and brightness. Oxblood border, amber bar.
+[urgency_low]
+	background = "#140b07"
+	foreground = "#e8dccb"
+	highlight = "#f2a33a"
+	frame_color = "#7f1d06"
+	timeout = 4
+
+# Normal: crimson border (the main accent)
+[urgency_normal]
+	background = "#140b07"
+	foreground = "#e8dccb"
+	highlight = "#e22e0e"
+	frame_color = "#e22e0e"
+	timeout = 8
+
+# Critical (like a dying battery): oxblood background, amber border; stays until dismissed
+[urgency_critical]
+	background = "#7f1d06"
+	foreground = "#e8dccb"
+	highlight = "#f2a33a"
+	frame_color = "#f2a33a"
+	timeout = 0

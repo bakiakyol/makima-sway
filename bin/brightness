@@ -1,0 +1,13 @@
+#!/bin/sh
+# brightness: brightness keys with an on-screen popup (dunst updates the same popup in place)
+#   brightness up | down
+# Never goes below 5 %, so the screen can't go completely dark.
+# (brightnessctl only takes an absolute value as the minimum, so 5 % of the maximum is computed here.)
+min=$(( $(brightnessctl max) * 5 / 100 ))
+case "$1" in
+up)   brightnessctl -q --min-value="$min" set 10%+ ;;
+down) brightnessctl -q --min-value="$min" set 10%- ;;
+*) echo "usage: brightness up|down" >&2; exit 1 ;;
+esac
+pct=$(brightnessctl -m | cut -d, -f4 | tr -d %)   # "amdgpu_bl1,backlight,255,100%,255"
+notify-send -u low -t 1500 -h string:x-dunst-stack-tag:brightness -h "int:value:$pct" "Brightness $pct%"

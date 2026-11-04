@@ -1,0 +1,21 @@
+#
+# ~/.bash_profile (example)
+#
+# No display manager: logging in on a TTY starts the desktop.
+# Here i3 runs on tty1 and Sway on tty2. Keep only what you need.
+
+# PATH first, so both desktops find the scripts in ~/.local/bin
+export PATH="$HOME/.local/bin:$PATH"
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+
+# tty1: i3 (X11)
+[ -z "$DISPLAY" ] && [ "$XDG_VTNR" = 1 ] && exec startx
+
+# tty2: Sway
+# If it won't start: see "Troubleshooting" in the README
+if [ -z "$WAYLAND_DISPLAY" ] && [ "$XDG_VTNR" = 2 ]; then
+	# Dark GTK apps (Firefox's menus and pages included), only inside Sway
+	export GTK_THEME=Adwaita:dark
+	exec sway
+fi
