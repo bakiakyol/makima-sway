@@ -1,0 +1,26 @@
+#!/bin/sh
+# power-menu: lock, suspend, log out, reboot, or shut down, picked in fuzzel (Sway, Super+Shift+e).
+# Log out, reboot, and shut down ask once more; "No" is the default, so a stray Enter is safe.
+
+# fail MESSAGE: error popup, then stop
+fail() {
+	notify-send -u critical -t 5000 -h string:x-dunst-stack-tag:power "Power" "$1"
+	exit 1
+}
+
+# confirm WHAT: a Yes / No menu; true only for Yes
+confirm() {
+	answer=$(printf '%s\n' "No" "Yes, $1" | fuzzel --dmenu --index --lines 2 --prompt "$1? ❯ ")
+	[ "$answer" = 1 ]
+}
+
+choice=$(printf '%s\n' "󰌾  Lock" "󰤄  Suspend" "󰍃  Log out" "󰜉  Reboot" "󰐥  Shut down" |
+	fuzzel --dmenu --index --lines 5 --prompt "Power ❯ ") || exit 0   # Esc closes it
+
+case "$choice" in
+0) exec "$HOME/.local/bin/lock" ;;
+1) systemctl suspend || fail "Couldn't suspend (systemctl suspend)." ;;   # locks first (swayidle before-sleep)
+2) confirm "Log out" && swaymsg exit ;;
+3) confirm "Reboot" && { systemctl reboot || fail "Couldn't reboot (systemctl reboot)."; } ;;
+4) confirm "Shut down" && { systemctl poweroff || fail "Couldn't shut down (systemctl poweroff)."; } ;;
+esac

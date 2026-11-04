@@ -12,8 +12,8 @@
 	"modules-left": ["sway/workspaces", "sway/mode"],
 	// Center: date and time
 	"modules-center": ["clock"],
-	// Right: Wi-Fi, volume, brightness, battery
-	"modules-right": ["network", "wireplumber", "backlight", "battery"],
+	// Right: keep awake, Do Not Disturb bell (only while on), Wi-Fi, volume, brightness, battery
+	"modules-right": ["idle_inhibitor", "custom/dnd", "network", "wireplumber", "backlight", "battery"],
 
 	"sway/workspaces": {
 		"disable-scroll": true,
@@ -43,6 +43,26 @@
 				"today": "<span color='#e22e0e'><b>{}</b></span>"
 			}
 		}
+	},
+
+	// Keep awake: click to stop the screen from locking and turning off (reading, a talk).
+	// Turns itself off after 2 hours, so it can't be forgotten. Locking by hand still works.
+	"idle_inhibitor": {
+		"format": "{icon}",
+		"format-icons": { "activated": "󰅶", "deactivated": "󰾪" },
+		"tooltip-format-activated": "Keep awake: on (click to turn off)",
+		"tooltip-format-deactivated": "Keep awake: off (click to keep the screen on)",
+		"timeout": 120
+	},
+
+	// Do Not Disturb: a bell, shown only while it's on (bin/dnd). Click or Super+Ctrl+n to toggle.
+	// bin/dnd sends signal 9 when it changes, so this only runs then.
+	"custom/dnd": {
+		"exec": "~/.local/bin/dnd status",
+		"return-type": "json",
+		"interval": "once",
+		"signal": 9,
+		"on-click": "~/.local/bin/dnd"
 	},
 
 	// Works with iwd. Click to open the Wi-Fi menu (~/.config/makima-sway/bin/wifi-menu).

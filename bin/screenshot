@@ -1,5 +1,9 @@
 #!/bin/sh
-# screenshot [select]: saves to <Pictures>/Screenshots/ and copies to the clipboard.
+# screenshot [select|window|delay]: saves to <Pictures>/Screenshots/ and copies to the clipboard.
+#   (nothing)  full screen
+#   select     a region picked with the mouse (Esc cancels)
+#   window     the focused window, without borders or gaps (Sway only)
+#   delay      full screen after 3 seconds, to catch a menu you open in the meantime
 # <Pictures> is your XDG pictures folder (~/.config/user-dirs.dirs), ~/Pictures if there is none.
 # Works on both Sway (grim, slurp, wl-copy) and i3 (maim, xclip), decided by $WAYLAND_DISPLAY.
 
@@ -14,6 +18,16 @@ dirs="${XDG_CONFIG_HOME:-$HOME/.config}/user-dirs.dirs"
 [ -r "$dirs" ] && . "$dirs"
 dir="${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
 mkdir -p "$dir" || fail "Can't create $dir"
+
+case "$1" in
+"" | select | window | delay) ;;
+*) echo "usage: screenshot [select|window|delay]" >&2; exit 1 ;;
+esac
+
+if [ "$1" = delay ]; then
+	notify-send -u low -t 1000 -h string:x-dunst-stack-tag:screenshot "Screenshot in 3 s"
+	sleep 3
+fi
 
 # Two shots in the same second get "-2", "-3", ... instead of overwriting each other
 name=$(date +%Y-%m-%d_%H-%M-%S)
@@ -30,13 +44,30 @@ if [ -n "$WAYLAND_DISPLAY" ]; then
 		# -b: dim  -c: border (crimson)  -s: selected area  -w: border width
 		area=$(slurp -b 140b0799 -c e22e0eff -s f2a33a22 -w 2) || exit 0   # Esc cancels
 		grim -g "$area" "$file" || fail "grim couldn't save $file"
+	elif [ "$1" = window ]; then
+		# grim -T captures one window by its toplevel id (just the window, even if covered)
+		id=$(swaymsg -t get_tree | python3 -I -c '
+import json, sys
+def focused(node):
+	if node.get("focused"):
+		return node
+	for child in node.get("nodes", []) + node.get("floating_nodes", []):
+		found = focused(child)
+		if found:
+			return found
+node = focused(json.load(sys.stdin)) or {}
+print(node.get("foreign_toplevel_identifier", ""))')
+		[ -n "$id" ] || fail "No focused window to capture."
+		grim -T "$id" "$file" || fail "grim couldn't save $file"
 	else
 		grim "$file" || fail "grim couldn't save $file"
 	fi
 	copy() { wl-copy --type image/png <"$file"; }
 else
 	# i3 (maim exits with an error both on Esc and on failure, so both just stop)
-	if [ "$1" = select ]; then
+	if [ "$1" = window ]; then
+		fail "The window mode is Sway only."
+	elif [ "$1" = select ]; then
 		maim -s -u "$file" || exit 0
 	else
 		maim -u "$file" || fail "maim couldn't save $file"

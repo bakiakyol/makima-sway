@@ -76,7 +76,7 @@ That shaped the design rules:
 </tr>
 </table>
 
-**The bar:** one thin 24 px strip. Workspaces on the left, the date in the center, Wi-Fi, volume, brightness, and battery on the right.
+**The bar:** one thin 24 px strip. Workspaces on the left, the date in the center, keep awake, Wi-Fi, volume, brightness, and battery on the right (plus a bell while Do Not Disturb is on).
 
 ![Bar](assets/screenshots/makima-bar.png)
 
@@ -96,8 +96,10 @@ That shaped the design rules:
 - **Notifications by urgency.** Volume and brightness popups get an amber progress bar. Critical alerts get an oxblood background and stay until you dismiss them.
 - **Low battery warning.** A popup at 15 % and a critical one that stays at 7 %, once per level instead of every few minutes, and it gets through Do Not Disturb. Checked every 2 minutes by a systemd user timer; does nothing on a machine without a battery.
 - **Lock screen.** A blurred, darkened copy of the wallpaper with a palette-colored ring. It locks after 10 min idle and before suspend, and the screen turns off at 11 min.
-- **Screenshots.** Full screen or a selected region, saved to `~/Pictures/Screenshots/` (your XDG pictures folder, if you have one) and copied to the clipboard. Two shots in the same second never overwrite each other.
-- **Dropdown terminal.** A floating scratchpad terminal toggled with one key.
+- **Screenshots.** Full screen, a selected region, the focused window, or full screen after 3 seconds, saved to `~/Pictures/Screenshots/` (your XDG pictures folder, if you have one) and copied to the clipboard. Two shots in the same second never overwrite each other.
+- **Dropdown terminal.** A floating scratchpad terminal toggled with one key. Sized in percent of the screen, and it recovers if you accidentally tile it.
+- **Power menu.** Lock, suspend, log out, reboot, or shut down from fuzzel, in the same colors. The risky ones ask first, with "No" as the default.
+- **Do Not Disturb and keep awake.** One key holds back popups (a bell in the bar shows it's on). A coffee cup in the bar stops the screen from locking while you read or present.
 - **Dark GTK apps (Sway only).** Firefox and other GTK apps go dark through `GTK_THEME`, without touching other desktops on the same account.
 - **Coexists with i3.** Shared scripts branch on `$WAYLAND_DISPLAY`, and the Sway notification config is fully separate. I run i3 on tty1 and this setup on tty2.
 
@@ -297,6 +299,8 @@ To try Sway without autostart, log in on any TTY and run `sway`.
 | `Super + X` | Lock screen |
 | `Super + P` | Screenshot, full screen |
 | `Super + Shift + P` | Screenshot, select a region (`Esc` cancels) |
+| `Super + Ctrl + P` | Screenshot, the focused window (no borders or gaps) |
+| `Super + Alt + P` | Screenshot, full screen after 3 seconds (to catch an open menu) |
 | `Super + Shift + Q` | Close window |
 
 ### Windows and layout
@@ -321,6 +325,14 @@ To try Sway without autostart, log in on any TTY and run `sway`.
 | `Super + 1 … 0` | Switch to workspace 1–10 |
 | `Super + Shift + 1 … 0` | Move window to workspace 1–10 |
 
+### Notifications
+
+| Keys | Action |
+|---|---|
+| `Super + N` | Close the notifications on screen |
+| `Super + Shift + N` | Bring back the last closed notification |
+| `Super + Ctrl + N` | Do Not Disturb on / off (the battery warning still gets through) |
+
 ### Hardware keys
 
 | Keys | Action |
@@ -334,12 +346,14 @@ To try Sway without autostart, log in on any TTY and run `sway`.
 | Keys | Action |
 |---|---|
 | `Super + Shift + C` | Reload the config |
-| `Super + Shift + E` | Exit Sway (asks first) |
+| `Super + Shift + E` | Power menu: lock, suspend, log out, reboot, shut down (the last three ask first) |
 
 ### Bar (mouse)
 
 | Where | Action |
 |---|---|
+| Coffee cup | Keep awake: click to stop the screen from locking (turns itself off after 2 hours) |
+| Bell (only while on) | Do Not Disturb is on; click to turn it off |
 | Wi-Fi | Click to open the Wi-Fi menu |
 | Volume | Click to mute, scroll to change |
 | Brightness | Scroll to change |
@@ -356,8 +370,10 @@ All scripts live in `bin/` and are linked into `~/.local/bin`:
 | `volume up\|down\|mute\|mic` | Volume through `wpctl`, with a dunst popup that updates in place |
 | `brightness up\|down` | Brightness through `brightnessctl` (never below 5 % of the maximum), with a popup |
 | `lock` | `swaylock` on Wayland, `i3lock` on X11 |
-| `screenshot [select]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` (or your XDG pictures folder) and copies to the clipboard |
-| `dropdown-terminal` | Toggles a floating 900×500 scratchpad terminal (foot on Sway, st on i3) |
+| `screenshot [select\|window\|delay]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` (or your XDG pictures folder) and copies to the clipboard |
+| `dropdown-terminal` | Toggles a floating scratchpad terminal, 66 % × 65 % of the screen (foot on Sway, st on i3) |
+| `power-menu` | Lock / suspend / log out / reboot / shut down in fuzzel, with a Yes / No step for the last three |
+| `dnd` | Do Not Disturb toggle (`dnd status` feeds the Waybar bell) |
 | `battery-warning` | Low battery popup at 15 % and 7 % (once per level), run every 2 minutes by `battery-warning.timer` |
 | `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed. Connected / saved networks offer Disconnect / Connect / Forget |
 

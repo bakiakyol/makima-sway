@@ -87,6 +87,8 @@ tooltip label {
 }
 
 /* ---------- right: thin separators between modules ---------- */
+#idle_inhibitor,
+#custom-dnd,
 #network,
 #wireplumber,
 #backlight,
@@ -94,6 +96,13 @@ tooltip label {
 	padding: 0 10px;
 	border-left: 1px solid @border;
 }
+
+/* Keep awake: muted while off, amber while on */
+#idle_inhibitor           { color: @muted; }
+#idle_inhibitor.activated { color: @amber; }
+
+/* Do Not Disturb bell (only there while it's on) */
+#custom-dnd { color: @copper; }
 
 #network              { color: @teal; }
 #network.disconnected { color: @muted; }

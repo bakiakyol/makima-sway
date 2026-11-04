@@ -1,0 +1,28 @@
+#!/bin/sh
+# dnd: Do Not Disturb on / off (Super+Ctrl+n, or click the bell in Waybar).
+#   dnd          toggle
+#   dnd status   for Waybar: shows 󰂛 while it's on, nothing while it's off
+# While it's on, popups wait and show up once it's turned off. The battery warning still
+# gets through: Do Not Disturb pauses dunst at level 50, and the [battery-warning] rule
+# in dunstrc lets level 60 through. (dunstctl set-paused would hold back everything.)
+LEVEL=50
+
+level=$(dunstctl get-pause-level 2>/dev/null) || level=0
+
+if [ "$1" = status ]; then
+	if [ "$level" -gt 0 ]; then
+		printf '{"text": "󰂛", "tooltip": "Do Not Disturb is on (Super+Ctrl+n or click to turn off)"}\n'
+	else
+		printf '{"text": ""}\n'
+	fi
+	exit 0
+fi
+
+if [ "$level" -gt 0 ]; then
+	dunstctl set-pause-level 0
+	notify-send -u low -t 1500 -h string:x-dunst-stack-tag:dnd "Do Not Disturb off"
+else
+	dunstctl set-pause-level "$LEVEL" || exit 1
+fi
+# Tell Waybar's bell module (signal 9) to refresh
+pkill -RTMIN+9 -x waybar

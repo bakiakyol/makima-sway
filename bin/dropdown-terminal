@@ -5,14 +5,21 @@
 if [ -n "$WAYLAND_DISPLAY" ]; then
 	# Sway: foot with app_id "dropdown". The window rule is in the sway config:
 	#   for_window [app_id="dropdown"] ...
-	if pgrep -f 'foot --app-id dropdown' >/dev/null; then
-		swaymsg -q '[app_id="dropdown"] scratchpad show, move position center'
+	# Ask Sway whether the window exists (not just a process with a similar command line).
+	if swaymsg -t get_tree | grep -q '"app_id": "dropdown"'; then
+		# Toggle it. If it was made a tiled window (Super+Shift+space), it's no longer in the
+		# scratchpad and "scratchpad show" fails; then float it and put it back first.
+		swaymsg -q '[app_id="dropdown"] scratchpad show, move position center' 2>/dev/null ||
+			swaymsg -q '[app_id="dropdown"] floating enable, resize set 66 ppt 65 ppt, move position center, move scratchpad, scratchpad show'
+	elif pgrep -u "$(id -u)" -fx 'foot --app-id dropdown' >/dev/null; then
+		# Started a moment ago and its window isn't up yet (a quick double press): wait for it
+		exit 0
 	else
 		exec foot --app-id dropdown
 	fi
 else
 	# i3: st with class "dropdown"
-	if pgrep -f 'st -c dropdown' >/dev/null; then
+	if pgrep -u "$(id -u)" -fx "$HOME/.local/bin/st -c dropdown" >/dev/null; then
 		i3-msg -q '[class="dropdown"] scratchpad show, move position center'
 	else
 		exec "$HOME/.local/bin/st" -c dropdown
