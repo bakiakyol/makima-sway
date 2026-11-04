@@ -8,34 +8,53 @@ How it works:
 	   iwctl prints a colored table, and parsing that would be fragile.
 	2. Shows the list in fuzzel and lets you pick one.
 	3. Connects right away to known or open networks, otherwise asks for the password.
+	   Picking the connected network offers Disconnect / Forget; a saved one, Connect / Forget.
+	   (Forget is how you enter a new password when a saved network's password has changed.)
 	4. Reports the result as a notification.
 
 Uses only the Python standard library.
 """
 
+import html
 import json
 import subprocess
 import sys
 
 IWD = "net.connman.iwd"
+CONNECT_TIMEOUT = 60   # seconds; iwctl normally gives up on its own well before this
+
+
+class Failure(Exception):
+	"""Something went wrong; the message is shown to the user."""
 
 
 def busctl(*args):
 	"""Run busctl and return the "data" part of its JSON output."""
-	out = subprocess.run(
-		["busctl", "--system", "--json=short", *args],
-		capture_output=True, text=True, check=True,
-	).stdout
-	return json.loads(out)["data"]
+	try:
+		out = subprocess.run(
+			["busctl", "--system", "--json=short", *args],
+			capture_output=True, text=True, check=True, timeout=15,
+		).stdout
+		return json.loads(out)["data"] if out else None
+	except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, ValueError, KeyError):
+		raise Failure("Can't reach iwd. Is it running? (systemctl status iwd)")
 
 
 def notify(title, body="", critical=False):
+	# dunst reads markup (<b>, &...), so text that comes from outside (network names) is escaped
 	subprocess.run([
 		"notify-send", "-t", "4000",
 		"-u", "critical" if critical else "normal",
 		"-h", "string:x-dunst-stack-tag:wifi",
-		title, body,
+		html.escape(title), html.escape(body),
 	])
+
+
+def printable(name):
+	"""Network names can hold any bytes. Line breaks or control characters would break the
+	one-line-per-network menu, so they are shown as "?". (Only for display: the real name is
+	what gets connected to.)"""
+	return "".join(c if c.isprintable() else "?" for c in name)
 
 
 def fuzzel(lines, prompt, password=False):
@@ -49,9 +68,17 @@ def fuzzel(lines, prompt, password=False):
 		cmd = ["fuzzel", "--dmenu", "--index", "--prompt", prompt,
 			"--lines", str(min(len(lines), 10))]
 	result = subprocess.run(cmd, input="\n".join(lines), capture_output=True, text=True)
-	if result.returncode != 0:
+	if result.returncode != 0 or result.stdout.strip() == "":
 		return None
-	return result.stdout.rstrip("\n")
+	out = result.stdout.rstrip("\n")
+	if password:
+		return out
+	# The index must point at one of our lines (typing text and pressing Enter gives -1)
+	try:
+		index = int(out)
+	except ValueError:
+		return None
+	return index if 0 <= index < len(lines) else None
 
 
 def signal_bars(dbm100):
@@ -68,15 +95,47 @@ def signal_bars(dbm100):
 	return "▮" * full + "▯" * (4 - full)
 
 
-def main():
-	try:
-		objects = busctl("call", IWD, "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")[0]
-	except (subprocess.CalledProcessError, FileNotFoundError):
-		notify("Wi-Fi", "Can't reach iwd. Is it running? (systemctl status iwd)", critical=True)
+def managed_objects():
+	return busctl("call", IWD, "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")[0]
+
+
+def connect(device, name, kind, known):
+	"""Connect with iwctl (asks for the password first if needed). Return the exit code."""
+	cmd = ["iwctl"]
+	if kind == "psk" and not known:
+		password = fuzzel([], f"{printable(name)} password ❯ ", password=True)
+		if not password:
+			return 0
+		# Note: while iwctl runs (a few seconds), the password is part of its command line,
+		# which other local users could read from /proc. On a single-user laptop that's fine;
+		# avoiding it would mean running an iwd agent over D-Bus, beyond the standard library.
+		cmd += ["--passphrase", password]
+	elif kind == "8021x" and not known:
+		notify("Wi-Fi", f"{name} is an enterprise (802.1x) network. It needs an iwd config file, the menu can't set it up.")
 		return 1
+	cmd += ["station", device, "connect", name]
+
+	notify("Wi-Fi", f"Connecting to {name}…")
+	try:
+		result = subprocess.run(cmd, capture_output=True, text=True, timeout=CONNECT_TIMEOUT,
+			stdin=subprocess.DEVNULL)   # no terminal: iwctl must not wait for typed input
+	except subprocess.TimeoutExpired:
+		notify("Wi-Fi", f"Connecting to {name} took too long, gave up.", critical=True)
+		return 1
+	if result.returncode == 0:
+		notify("Wi-Fi", f"Connected to {name}.")
+		return 0
+	error = (result.stdout + result.stderr).strip() or "unknown error"
+	hint = "\nIf its password changed: pick it again and choose Forget." if known else ""
+	notify("Wi-Fi", f"Couldn't connect to {name}:\n{error}{hint}", critical=True)
+	return 1
+
+
+def main():
+	objects = managed_objects()
 
 	# Find the wireless card (station): its name ("wlan0") and its D-Bus path
-	station = None
+	station = device = None
 	for path, interfaces in objects.items():
 		if f"{IWD}.Station" in interfaces:
 			station = path
@@ -93,9 +152,8 @@ def main():
 
 	# Networks sorted by signal strength: [[path, signal], ...]
 	ordered = busctl("call", IWD, station, f"{IWD}.Station", "GetOrderedNetworks")[0]
-	if not ordered:
-		notify("Wi-Fi", "No networks found. Try again in a moment.")
-		return 0
+	# Read the network details again now, so they match the list we just got
+	objects = managed_objects()
 
 	networks = []
 	lines = []
@@ -106,41 +164,45 @@ def main():
 		name = net["Name"]["data"]
 		kind = net["Type"]["data"]                 # "psk", "open", "8021x"
 		connected = net["Connected"]["data"]
-		known = "KnownNetwork" in net
+		known = net.get("KnownNetwork", {}).get("data")   # D-Bus path of the saved profile
 		lock = "󰌾" if kind != "open" else " "
 		status = "  (connected)" if connected else ("  (saved)" if known else "")
-		lines.append(f"{signal_bars(signal)}  {lock}  {name}{status}")
+		lines.append(f"{signal_bars(signal)}  {lock}  {printable(name)}{status}")
 		networks.append((name, kind, connected, known))
 
+	if not networks:
+		notify("Wi-Fi", "No networks found. Try again in a moment.")
+		return 0
+
 	choice = fuzzel(lines, "Wi-Fi ❯ ")
-	if choice is None or choice == "":
+	if choice is None:
 		return 0
-	name, kind, connected, known = networks[int(choice)]
+	name, kind, connected, known = networks[choice]
 
-	if connected:
-		notify("Wi-Fi", f"Already connected to {name}.")
-		return 0
-
-	cmd = ["iwctl"]
-	if kind == "psk" and not known:
-		password = fuzzel([], f"{name} password ❯ ", password=True)
-		if not password:
+	# Connected or saved network: ask what to do with it
+	if connected or known:
+		actions = ["Disconnect"] if connected else ["Connect"]
+		if known:
+			actions.append("Forget")
+		pick = fuzzel(actions, f"{printable(name)} ❯ ")
+		if pick is None:
 			return 0
-		cmd += ["--passphrase", password]
-	elif kind == "8021x" and not known:
-		notify("Wi-Fi", f"{name} is an enterprise (802.1x) network. It needs an iwd config file, the menu can't set it up.")
-		return 1
-	cmd += ["station", device, "connect", name]
+		action = actions[pick]
+		if action == "Disconnect":
+			busctl("call", IWD, station, f"{IWD}.Station", "Disconnect")
+			notify("Wi-Fi", f"Disconnected from {name}.")
+			return 0
+		if action == "Forget":
+			busctl("call", IWD, known, f"{IWD}.KnownNetwork", "Forget")
+			notify("Wi-Fi", f"Forgot {name}. Pick it again to enter its password.")
+			return 0
 
-	notify("Wi-Fi", f"Connecting to {name}…")
-	result = subprocess.run(cmd, capture_output=True, text=True)
-	if result.returncode == 0:
-		notify("Wi-Fi", f"Connected to {name}.")
-		return 0
-	error = (result.stdout + result.stderr).strip() or "unknown error"
-	notify("Wi-Fi", f"Couldn't connect to {name}:\n{error}", critical=True)
-	return 1
+	return connect(device, name, kind, known)
 
 
 if __name__ == "__main__":
-	sys.exit(main())
+	try:
+		sys.exit(main())
+	except Failure as e:
+		notify("Wi-Fi", str(e), critical=True)
+		sys.exit(1)

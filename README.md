@@ -92,7 +92,7 @@ That shaped the design rules:
 - **Thin top bar.** A 24 px Waybar strip. The clock shows a month calendar on hover. Click the Wi-Fi icon for the network menu, scroll on volume or brightness to change them, click volume to mute.
 - **Gaps and thin borders.** No title bars. The focused window gets a crimson 2 px border, and the wallpaper shows through the gaps.
 - **Semi-transparent terminal.** foot at 93 % opacity with a crimson block cursor and a matching bash prompt.
-- **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed.
+- **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed. Pick the connected network to disconnect, or a saved one to forget it (that is also how you enter a new password after it changed).
 - **Notifications by urgency.** Volume and brightness popups get an amber progress bar. Critical alerts get an oxblood background and stay until you dismiss them.
 - **Lock screen.** A blurred, darkened copy of the wallpaper with a palette-colored ring. It locks after 10 min idle and before suspend, and the screen turns off at 11 min.
 - **Screenshots.** Full screen or a selected region, saved to `~/Pictures/Screenshots/` (your XDG pictures folder, if you have one) and copied to the clipboard. Two shots in the same second never overwrite each other.
@@ -345,7 +345,7 @@ All scripts live in `bin/` and are linked into `~/.local/bin`:
 | `lock` | `swaylock` on Wayland, `i3lock` on X11 |
 | `screenshot [select]` | `grim`/`slurp`/`wl-copy` on Wayland, `maim`/`xclip` on X11. Saves to `~/Pictures/Screenshots/` (or your XDG pictures folder) and copies to the clipboard |
 | `dropdown-terminal` | Toggles a floating 900×500 scratchpad terminal (foot on Sway, st on i3) |
-| `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed |
+| `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed. Connected / saved networks offer Disconnect / Connect / Forget |
 
 The shared scripts check `$WAYLAND_DISPLAY`, so the same file works under both i3 and Sway.
 
@@ -409,6 +409,7 @@ Then pick a dark background, a light text color, one strong accent, and one seco
 | No notifications, or they appear on another screen | Another dunst (for example from an i3 session) already holds the D-Bus name. Close the other session |
 | Clock in your own language | Use `{:L%a %e %b  %H:%M}` as the clock format, set `"locale"` (for example `"de_DE.UTF-8"`), and make sure that locale is generated |
 | Wi-Fi menu says iwd is unreachable | `systemctl status iwd`. The menu only supports iwd |
+| A saved network keeps failing (its password changed) | Open the Wi-Fi menu, pick the network, choose **Forget**, then pick it again and enter the new password |
 | Bar, terminal, or lock screen look like the defaults | The `~/.config/makima-sway` link is broken (for example, the repo was moved). Run `./install.sh` again from the repo |
 
 ---
