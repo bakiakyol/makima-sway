@@ -203,3 +203,10 @@ bindsym $mod+r mode "resize"
 bar {
 	swaybar_command waybar
 }
+
+# ---------- your own settings ----------
+# Files in ~/.config/sway/config.d/ are read last, so they can change anything above
+# without editing this file (it stays in sync with the repo). Nothing there by default.
+# Example, ~/.config/sway/config.d/keyboard.conf:
+#   input type:keyboard xkb_layout us
+include ~/.config/sway/config.d/*

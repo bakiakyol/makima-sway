@@ -205,6 +205,14 @@ Check these before you install, or parts of the bar will stay empty:
 | Battery / adapter | `config/waybar/config.jsonc` → `battery` | `BAT1` / `ADP1` | `ls /sys/class/power_supply` |
 | Wallpaper size | `wallpapers/makima-torii.jpg` | 1366×768 | see [Customization](#higher-resolution-wallpaper) |
 
+**Sway settings of your own** (keyboard layout, extra keybindings, outputs) can go in `~/.config/sway/config.d/*.conf` instead of the tracked config. Those files are read last, so they override anything in it, and `git pull` never conflicts with them. For example, `~/.config/sway/config.d/keyboard.conf`:
+
+```
+input type:keyboard xkb_layout us
+```
+
+The Waybar values above have no such override file; change them in `config/waybar/config.jsonc`.
+
 ---
 
 ## Installation
@@ -235,8 +243,9 @@ cd ~/makima-sway
 
 - **Enables the battery warning timer** (`systemctl --user enable --now battery-warning.timer`). To turn it off: `systemctl --user disable --now battery-warning.timer`.
 
-- **Never deletes anything.** If a file already exists, it is moved to `<name>.bak-makima-<date>`. A link that is already correct is left alone, so running the script twice is safe.
-- With **`--cursor`**, it downloads [Bibata Modern Amber v2.0.7](https://github.com/ful1e5/Bibata_Cursor/releases/tag/v2.0.7) and recolors it into `~/.local/share/icons/Makima-Crimson`. The recolored cursor files are not stored in this repo.
+- **Never deletes your files.** If a file already exists, it is moved to `<name>.bak-makima-<date>`. A link that is already correct is left alone, so running the script twice is safe.
+- With **`--cursor`**, it downloads [Bibata Modern Amber v2.0.7](https://github.com/ful1e5/Bibata_Cursor/releases/tag/v2.0.7) checks its checksum, and recolors it into `~/.local/share/icons/Makima-Crimson`. The recolored cursor files are not stored in this repo. Running it again replaces that theme only once the new one is complete, and it refuses to replace a folder it didn't make.
+- **Ends with a short check:** missing programs, and a note if the cursor theme isn't built yet.
 - Leaves out dunst on purpose. Sway starts it with `dunst --config ~/.config/makima-sway/config/dunst/dunstrc`, so your existing `~/.config/dunst` (for another desktop) stays untouched.
 - Does **not** install packages and does **not** edit `~/.bash_profile` or `~/.bashrc`. See the next section for those.
 
@@ -369,11 +378,11 @@ The palette is defined at the top of each config file:
 ### Recolor the cursor to any color
 
 ```bash
-python3 design/recolor-cursor.py <source-theme-dir> ~/.local/share/icons/<Name> <Name> <hex>
+python3 design/recolor-cursor.py <source-theme-dir> ~/.local/share/icons/<Name> <Name> <hex>   # hex: e22e0e or "#e22e0e"
 # then set `seat seat0 xcursor_theme <Name> 24` and the gsettings lines in config/sway/config
 ```
 
-The script reads the Xcursor files directly, shifts every saturated pixel to the target hue, keeps the lighting and shading, and leaves black, white, and gray outlines alone. It uses only the Python standard library.
+The script reads the Xcursor files directly, shifts every saturated pixel to the target hue, keeps the lighting and shading, and leaves black, white, and gray outlines alone. It uses only the Python standard library. It builds the theme in a temporary folder first, so a failed run (bad color, broken file) leaves an existing theme as it was.
 
 ### Higher-resolution wallpaper
 

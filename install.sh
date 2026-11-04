@@ -58,7 +58,8 @@ echo
 echo "Repo:"
 link "$REPO" "$HOME/.config/makima-sway"
 
-# From here on, links go through the fixed path, so moving the repo won't break them.
+# From here on, links go through this fixed path. If you move the repo, run ./install.sh
+# again from its new place: only this one link changes, all the others stay valid.
 M="$HOME/.config/makima-sway"
 
 echo
@@ -75,6 +76,8 @@ link "$M/config/swaylock/config"     "$HOME/.config/swaylock/config"
 echo
 echo "Scripts (~/.local/bin):"
 for script in "$REPO"/bin/*; do
+	# Only executable files (no folders, no stray files like __pycache__)
+	[ -f "$script" ] && [ -x "$script" ] || continue
 	link "$M/bin/$(basename "$script")" "$HOME/.local/bin/$(basename "$script")"
 done
 
@@ -97,6 +100,7 @@ if [ "$CURSOR" = 1 ]; then
 	echo "Mouse cursor (Makima-Crimson):"
 	VERSION=v2.0.7
 	URL="https://github.com/ful1e5/Bibata_Cursor/releases/download/$VERSION/Bibata-Modern-Amber.tar.xz"
+	SHA256=58b7ac00ed3cb45acb6b917cb9807a553873f1cca5c91348c4abaebe638e5884
 	if [ "$DRY_RUN" = 1 ]; then
 		echo "  [dry-run] download $URL, recolor to crimson as ~/.local/share/icons/Makima-Crimson"
 	else
@@ -104,10 +108,36 @@ if [ "$CURSOR" = 1 ]; then
 		trap 'rm -rf "$TMP"' EXIT
 		echo "  downloading: $URL"
 		curl -fsSL -o "$TMP/amber.tar.xz" "$URL"
+		# Only use the exact file this setup was made with
+		if ! echo "$SHA256  $TMP/amber.tar.xz" | sha256sum -c --status; then
+			echo "  error: the downloaded file doesn't match the expected checksum, not using it" >&2
+			exit 1
+		fi
 		tar -xf "$TMP/amber.tar.xz" -C "$TMP"
 		python3 -I "$REPO/design/recolor-cursor.py" "$TMP/Bibata-Modern-Amber" \
 			"$HOME/.local/share/icons/Makima-Crimson" "Makima-Crimson" e22e0e
 	fi
+fi
+
+# ---------- checks (read only) ----------
+echo
+echo "Checks:"
+# Programs the configs and scripts call. (i3 extras like maim, xclip, i3lock aren't checked.)
+missing=
+for prog in sway waybar foot fuzzel dunst notify-send swaylock swayidle grim slurp wl-copy \
+	brightnessctl wpctl iwctl busctl python3; do
+	command -v "$prog" >/dev/null 2>&1 || missing="$missing $prog"
+done
+if [ -n "$missing" ]; then
+	echo "  missing :$missing  (see Requirements in the README)"
+else
+	echo "  ok       all programs found"
+fi
+if [ -d "$HOME/.local/share/icons/Makima-Crimson" ]; then
+	echo "  ok       cursor theme Makima-Crimson"
+elif [ "$CURSOR" = 0 ]; then
+	echo "  note     cursor theme Makima-Crimson isn't installed (Sway uses its default cursor)."
+	echo "           To build it: ./install.sh --cursor"
 fi
 
 echo
