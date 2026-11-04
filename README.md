@@ -53,7 +53,7 @@ It was built for a weak laptop:
 That shaped the design rules:
 
 - **No blur, no shadows, no animations.** Plain Sway, not SwayFX or Hyprland.
-- **Transparency only in the terminal.** Everything else is opaque.
+- **Transparency only where it's cheap.** The terminal (93 %) and the bar (92 %) are slightly see-through, with no blur behind them. Everything else is opaque.
 - **Fast, GTK-free tools where possible.** foot, fuzzel, and dunst all start instantly.
 - **Expensive work happens once, ahead of time.** The lock screen blur is baked into an image with ffmpeg, and the wallpaper is pre-scaled to the screen size (~4 MB in memory instead of ~33 MB).
 
@@ -193,7 +193,18 @@ sudo pacman -S --needed \
 | `python` | `bin/wifi-menu` and the cursor recolor script (standard library only) |
 | `ttf-jetbrains-mono-nerd` | Font and bar icons |
 
-**Optional:** `bat` (pretty `cat`), `curl` (needed by `install.sh --cursor`), `ffmpeg` (to rescale the wallpaper or rebuild the lock image).
+**Optional:** `curl` and `xz` (needed by `install.sh --cursor`), `ffmpeg` (to rescale the wallpaper or rebuild the lock image), `bat` (pretty `cat`).
+
+The battery warning needs a systemd user session (standard on Arch). The cursor lines in the Sway config use `gsettings` (from `glib2`, installed on practically every desktop).
+
+### Optional extras (not installed by default)
+
+These start background services, so they're left out unless you need them:
+
+| You want | Install | Then |
+|---|---|---|
+| **Screen sharing** in browsers and video call apps (Meet, Zoom, Discord). Without it, sharing shows a black screen or nothing | `xdg-desktop-portal xdg-desktop-portal-wlr` | Log out and back in. The `/etc/sway/config.d/` snippet the config already includes passes the session to the portal |
+| **Password prompts for GUI apps** (an app asking for admin rights). Without it, those requests quietly fail; `sudo` in a terminal is unaffected | `polkit-gnome` | Add `exec /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1` to a file in `~/.config/sway/config.d/` |
 
 ### Things that are specific to my machine
 
@@ -280,6 +291,12 @@ A full example lives in `config/bash_profile`.
 It produces `user@host ~/path ❯` with the user in crimson and the path in amber. The `❯` turns crimson when the last command failed. The prompt loads only in foot, so other terminals keep their own.
 
 To try Sway without autostart, log in on any TTY and run `sway`.
+
+### Alongside i3
+
+The shared scripts (`volume`, `brightness`, `lock`, `screenshot`, `dropdown-terminal`) check `$WAYLAND_DISPLAY` and use the X11 tools under i3. For those branches you also need `maim xclip i3lock`, and the dropdown terminal on i3 expects `st` at `~/.local/bin/st`. `install.sh` doesn't touch your i3 config: keybindings and the dropdown window rule there are yours to add. The Sway-only tools (Wi-Fi menu, power menu, Do Not Disturb, keybinding list) use fuzzel and Waybar and aren't meant for i3.
+
+The cursor theme is also written to `gsettings` on every Sway (re)load. GTK apps on X11 only read that through an XSETTINGS daemon (like `xsettingsd`), so a plain i3 session usually isn't affected.
 
 > **Warning:** Don't run i3 (X11) and Sway at the same time under the same user. The D-Bus session is per user, not per TTY, so notifications and new Firefox windows can end up on the wrong screen. Log out of one before you start the other.
 
@@ -422,6 +439,25 @@ ffmpeg -i wallpaper.jpg -vf "palettegen=max_colors=16:reserve_transparent=0:stat
 
 Then pick a dark background, a light text color, one strong accent, and one secondary accent from the result. Check the contrast by eye.
 
+### External monitor
+
+> I haven't been able to test this on my machine yet, so treat it as a starting point.
+
+Sway picks up a monitor on its own and puts it next to the laptop screen. To arrange it yourself, find the names with `swaymsg -t get_outputs` (here the laptop is `LVDS-1`, newer laptops say `eDP-1`, and the HDMI port is `HDMI-A-1`) and put the layout in `~/.config/sway/config.d/outputs.conf`:
+
+```
+# Monitor to the right of the laptop screen
+output LVDS-1   position 0 0
+output HDMI-A-1 mode 1920x1080 position 1366 0
+
+# Or: only the monitor while the lid is closed. Only add this if you close the lid with
+# the monitor plugged in; without one it just turns the only screen off until you open it.
+bindswitch --reload --locked lid:on  output LVDS-1 disable
+bindswitch --reload --locked lid:off output LVDS-1 enable
+```
+
+What adapts by itself: the dropdown terminal is sized in percent of the screen, Waybar shows on every output, and the workspace buttons list all workspaces. What doesn't: the wallpaper is scaled for 1366×768 and looks soft on a bigger screen (see [Higher-resolution wallpaper](#higher-resolution-wallpaper)). For profiles that switch automatically when you plug in, look at [kanshi](https://sr.ht/~emersion/kanshi/).
+
 ### More detail
 
 `design/palette.md` documents the palette and its roles.
@@ -430,7 +466,7 @@ Then pick a dark background, a light text color, one strong accent, and one seco
 
 ## Troubleshooting
 
-**If Sway won't start and you're stuck:** press `Ctrl+Alt+F3`, log in on that TTY, and put a `#` in front of the `exec sway` line in `~/.bash_profile`. If Sway is frozen and the keys don't respond, wait a few seconds and try again. Then start Sway by hand with a log (`sway -d 2> ~/sway.log`) and look for the cause with `grep -i -E "error|fail" ~/sway.log`.
+**If Sway won't start and you're stuck:** see [RECOVERY.md](RECOVERY.md) (worth keeping a copy on your phone). In short, press `Ctrl+Alt+F3`, log in on that TTY, and put a `#` in front of the `exec sway` line in `~/.bash_profile`. If Sway is frozen and the keys don't respond, wait a few seconds and try again. Then start Sway by hand with a log (`sway -d 2> ~/sway.log`) and look for the cause with `grep -i -E "error|fail" ~/sway.log`.
 
 | Symptom | Try |
 |---|---|
@@ -440,6 +476,8 @@ Then pick a dark background, a light text color, one strong accent, and one seco
 | Gaps or borders not applied after a reload | They only apply to new windows and workspaces. Run `swaymsg 'gaps inner all set 6; gaps outer all set 4; [all] border pixel 2'` or log in again |
 | No notifications, or they appear on another screen | Another dunst (for example from an i3 session) already holds the D-Bus name. Close the other session |
 | Clock in your own language | Use `{:L%a %e %b  %H:%M}` as the clock format, set `"locale"` (for example `"de_DE.UTF-8"`), and make sure that locale is generated |
+| Screen sharing shows a black screen or nothing | Install the screen sharing portal, see [Optional extras](#optional-extras-not-installed-by-default) |
+| A new keybinding or bar icon doesn't show up | The config wasn't reloaded. Press `Super+Shift+C`, or run `swaymsg reload` |
 | Wi-Fi menu says iwd is unreachable | `systemctl status iwd`. The menu only supports iwd |
 | A saved network keeps failing (its password changed) | Open the Wi-Fi menu, pick the network, choose **Forget**, then pick it again and enter the new password |
 | Bar, terminal, or lock screen look like the defaults | The `~/.config/makima-sway` link is broken (for example, the repo was moved). Run `./install.sh` again from the repo |
@@ -451,6 +489,7 @@ Then pick a dark background, a light text color, one strong accent, and one seco
 ```
 makima-sway/
 ├── install.sh                 # symlinks everything into place (see Installation)
+├── RECOVERY.md                # what to do if Sway won't start
 ├── config/
 │   ├── sway/config            # compositor: keys, gaps, colors, idle, bar
 │   ├── waybar/                # config.jsonc + style.css (thin top strip)
