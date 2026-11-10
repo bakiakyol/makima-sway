@@ -90,7 +90,7 @@
 	// Scroll to change brightness via the "brightness" script (it keeps a 5 % minimum).
 	// Change "device" to yours (ls /sys/class/backlight).
 	"backlight": {
-		"device": "amdgpu_bl1",
+		"device": "intel_backlight",
 		"format": "󰃠 {percent}%",
 		"on-scroll-up": "~/.local/bin/brightness up",
 		"on-scroll-down": "~/.local/bin/brightness down"
@@ -98,8 +98,8 @@
 
 	// Change "bat" and "adapter" to yours (ls /sys/class/power_supply).
 	"battery": {
-		"bat": "BAT1",
-		"adapter": "ADP1",
+		"bat": "BAT0",
+		"adapter": "ADP0",
 		"interval": 30,
 		"states": { "warning": 30, "critical": 15 },
 		"format": "{icon} {capacity}%",
