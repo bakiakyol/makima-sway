@@ -6,7 +6,9 @@ Opens when you click the Wi-Fi module in Waybar. You can also run it by hand: wi
 How it works:
 	1. Asks iwd over D-Bus (busctl) which networks are around and how strong they are.
 	   iwctl prints a colored table, and parsing that would be fragile.
-	2. Shows the list in fuzzel and lets you pick one.
+	2. Shows the list in fuzzel and lets you pick one. When iwd knows only one network (often
+	   right after connecting), it first waits for a fresh scan, with a progress popup.
+	   "Scan again" at the bottom does the same on demand.
 	3. Connects right away to known or open networks, otherwise asks for the password.
 	   Picking the connected network offers Disconnect / Forget; a saved one, Connect / Forget.
 	   (Forget is how you enter a new password when a saved network's password has changed.)
@@ -19,9 +21,12 @@ import html
 import json
 import subprocess
 import sys
+import time
 
 IWD = "net.connman.iwd"
 CONNECT_TIMEOUT = 60   # seconds; iwctl normally gives up on its own well before this
+SCAN_TIMEOUT = 15     # seconds to wait for a scan before showing what iwd has
+ICON_RESCAN = "\U000f0450"   # refresh (Nerd Font)
 
 
 class Failure(Exception):
@@ -131,28 +136,41 @@ def connect(device, name, kind, known):
 	return 1
 
 
-def main():
-	objects = managed_objects()
-
-	# Find the wireless card (station): its name ("wlan0") and its D-Bus path
-	station = device = None
-	for path, interfaces in objects.items():
-		if f"{IWD}.Station" in interfaces:
-			station = path
-			device = interfaces[f"{IWD}.Device"]["Name"]["data"]
-			break
-	if station is None:
-		notify("Wi-Fi", "No wireless card found.", critical=True)
-		return 1
-
-	# Start a new scan in the background so the list is fresh next time.
-	# It fails if a scan is already running, which is fine.
+def start_scan(station):
+	# Fails if a scan is already running, which is fine
 	subprocess.run(["busctl", "--system", "call", IWD, station, f"{IWD}.Station", "Scan"],
 		capture_output=True)
 
+
+def wait_for_scan(station):
+	"""Wait until iwd's scan is done (at most SCAN_TIMEOUT s), with a progress popup."""
+	start = time.monotonic()
+	while busctl("get-property", IWD, station, f"{IWD}.Station", "Scanning"):
+		elapsed = time.monotonic() - start
+		if elapsed > SCAN_TIMEOUT:
+			break
+		# A scan usually takes about 7 s; the bar stops short of full until it's really done
+		progress("Scanning for networks…", min(95, int(elapsed / 7 * 100)))
+		time.sleep(0.5)
+	progress("Scanning for networks…", 100, timeout=800)
+
+
+def progress(title, percent, timeout=1500):
+	"""A low-urgency popup with a progress bar. Each call replaces the previous one."""
+	subprocess.run([
+		"notify-send", "-u", "low", "-t", str(timeout),
+		"-h", "string:x-dunst-stack-tag:wifi",
+		"-h", f"int:value:{percent}",
+		title,
+	])
+
+
+def list_networks(station):
+	"""Return (networks, lines): the networks iwd knows about, strongest first,
+	and one menu line for each."""
 	# Networks sorted by signal strength: [[path, signal], ...]
 	ordered = busctl("call", IWD, station, f"{IWD}.Station", "GetOrderedNetworks")[0]
-	# Read the network details again now, so they match the list we just got
+	# Read the network details now, so they match the list we just got
 	objects = managed_objects()
 
 	networks = []
@@ -169,14 +187,44 @@ def main():
 		status = "  (connected)" if connected else ("  (saved)" if known else "")
 		lines.append(f"{signal_bars(signal)}  {lock}  {printable(name)}{status}")
 		networks.append((name, kind, connected, known))
+	return networks, lines
 
-	if not networks:
-		notify("Wi-Fi", "No networks found. Try again in a moment.")
-		return 0
 
-	choice = fuzzel(lines, "Wi-Fi ❯ ")
-	if choice is None:
-		return 0
+def main():
+	objects = managed_objects()
+
+	# Find the wireless card (station): its name ("wlan0") and its D-Bus path
+	station = device = None
+	for path, interfaces in objects.items():
+		if f"{IWD}.Station" in interfaces:
+			station = path
+			device = interfaces[f"{IWD}.Device"]["Name"]["data"]
+			break
+	if station is None:
+		notify("Wi-Fi", "No wireless card found.", critical=True)
+		return 1
+
+	# Start a new scan. iwd keeps the results of the last one, but right after connecting it
+	# often knows only that one network; then the fresh scan (5-8 s) is worth waiting for.
+	start_scan(station)
+	wait = len(list_networks(station)[0]) <= 1
+
+	while True:
+		if wait:
+			wait_for_scan(station)
+		networks, lines = list_networks(station)
+		if not networks:
+			notify("Wi-Fi", "No networks found. Try again in a moment.")
+			return 0
+		lines.append(f"{ICON_RESCAN}  Scan again")
+
+		choice = fuzzel(lines, "Wi-Fi ❯ ")
+		if choice is None:
+			return 0
+		if choice < len(networks):
+			break
+		start_scan(station)
+		wait = True
 	name, kind, connected, known = networks[choice]
 
 	# Connected or saved network: ask what to do with it

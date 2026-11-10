@@ -6,7 +6,9 @@
 
 [global]
 	font = JetBrainsMono Nerd Font Mono 10
-	# Top-right corner, just below the bar
+	# Top-right corner, just below the bar, on the screen the mouse is on
+	# (with two screens, popups otherwise always land on the first one)
+	follow = mouse
 	origin = top-right
 	offset = (12, 36)
 	width = 320

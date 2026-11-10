@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+"""bluetooth-menu: connect, disconnect, pair, and forget Bluetooth devices in fuzzel (BlueZ).
+
+Opens when you click the Bluetooth module in Waybar. You can also run it by hand: bluetooth-menu
+
+How it works:
+	1. Asks BlueZ over D-Bus (busctl) for the adapter and the known devices.
+	   bluetoothctl prints colored, interactive output, and parsing that would be fragile.
+	2. Shows the paired and connected devices in fuzzel, connected ones first.
+	3. Picking a device offers Connect or Disconnect, and Forget (which asks first).
+	   "Scan for new devices" searches for 10 seconds, then pairs, trusts, and connects
+	   the one you pick, so it reconnects by itself next time.
+	4. Reports the result as a notification.
+
+The actions themselves (power, scan, pair, connect...) go through bluetoothctl: a scan only
+runs while the program that started it stays connected to BlueZ, and pairing needs an agent,
+which bluetoothctl registers by itself. Devices that ask you to type a PIN can't be paired
+from this menu; use bluetoothctl in a terminal for those.
+
+Uses only the Python standard library.
+"""
+
+import html
+import json
+import subprocess
+import sys
+
+BLUEZ = "org.bluez"
+SCAN_SECONDS = 10
+
+# Nerd Font icons (Material Design)
+ICON_ON = "\U000f00af"         # bluetooth
+ICON_OFF = "\U000f00b2"        # bluetooth-off
+ICON_SCAN = "\U000f0349"       # magnify
+ICON_BATTERY = "\U000f0079"    # battery
+ICONS = {                      # BlueZ "Icon" property -> icon
+	"audio-card": "\U000f04c3",        # speaker
+	"audio-headset": "\U000f02cb",     # headphones
+	"audio-headphones": "\U000f02cb",
+	"input-keyboard": "\U000f030c",    # keyboard
+	"input-mouse": "\U000f037d",       # mouse
+	"input-gaming": "\U000f0297",      # gamepad
+	"phone": "\U000f011c",             # cellphone
+	"computer": "\U000f0322",          # laptop
+}
+ICON_DEVICE = "\U000f00b1"     # bluetooth-connect, for anything else
+# Disconnecting these (or turning Bluetooth off) takes away a keyboard or mouse, so ask first
+INPUT_ICONS = (ICONS["input-keyboard"], ICONS["input-mouse"])
+
+
+class Failure(Exception):
+	"""Something went wrong; the message is shown to the user."""
+
+
+def busctl(*args):
+	"""Run busctl and return the "data" part of its JSON output."""
+	try:
+		out = subprocess.run(
+			["busctl", "--system", "--json=short", *args],
+			capture_output=True, text=True, check=True, timeout=15,
+		).stdout
+		return json.loads(out)["data"] if out else None
+	except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError, ValueError, KeyError):
+		raise Failure("Can't reach BlueZ. Is it running? (systemctl status bluetooth)")
+
+
+def bluetoothctl(*args, timeout=30):
+	"""Run one bluetoothctl command. Return its output (for error messages)."""
+	try:
+		result = subprocess.run(["bluetoothctl", *args], capture_output=True, text=True,
+			timeout=timeout + 5, stdin=subprocess.DEVNULL)
+	except FileNotFoundError:
+		raise Failure("bluetoothctl is missing (install bluez-utils).")
+	except subprocess.TimeoutExpired:
+		return "timed out"
+	return (result.stdout + result.stderr).strip()
+
+
+def notify(title, body="", critical=False):
+	# dunst reads markup (<b>, &...), so text that comes from outside (device names) is escaped
+	subprocess.run([
+		"notify-send", "-t", "4000",
+		"-u", "critical" if critical else "normal",
+		"-h", "string:x-dunst-stack-tag:bluetooth",
+		html.escape(title), html.escape(body),
+	])
+
+
+def progress(title, body, percent, timeout=2000):
+	"""A low-urgency popup with a progress bar. Each call replaces the previous one."""
+	subprocess.run([
+		"notify-send", "-u", "low", "-t", str(timeout),
+		"-h", "string:x-dunst-stack-tag:bluetooth",
+		"-h", f"int:value:{percent}",
+		html.escape(title), html.escape(body),
+	])
+
+
+def printable(name):
+	"""Device names can hold any bytes. Line breaks or control characters would break the
+	one-line-per-device menu, so they are shown as "?"."""
+	return "".join(c if c.isprintable() else "?" for c in name)
+
+
+def fuzzel(lines, prompt):
+	"""Open fuzzel as a menu. Return the index of the chosen line, or None for Esc."""
+	result = subprocess.run(
+		["fuzzel", "--dmenu", "--index", "--prompt", prompt, "--lines", str(min(len(lines), 12))],
+		input="\n".join(lines), capture_output=True, text=True,
+	)
+	if result.returncode != 0 or result.stdout.strip() == "":
+		return None
+	# The index must point at one of our lines (typing text and pressing Enter gives -1)
+	try:
+		index = int(result.stdout.strip())
+	except ValueError:
+		return None
+	return index if 0 <= index < len(lines) else None
+
+
+def confirm(what):
+	"""A No / Yes menu; true only for Yes. "No" comes first, so a stray Enter is safe."""
+	return fuzzel(["No", f"Yes, {what}"], f"{what}? ❯ ") == 1
+
+
+def read_state():
+	"""Return (adapter, devices). adapter: {"path", "powered"} or None.
+	devices: a list of dicts, one per device BlueZ knows about."""
+	objects = busctl("call", BLUEZ, "/", "org.freedesktop.DBus.ObjectManager", "GetManagedObjects")[0]
+	adapter = None
+	devices = []
+	for path, interfaces in objects.items():
+		if adapter is None and f"{BLUEZ}.Adapter1" in interfaces:
+			adapter = {"path": path, "powered": interfaces[f"{BLUEZ}.Adapter1"]["Powered"]["data"]}
+		dev = interfaces.get(f"{BLUEZ}.Device1")
+		if dev is None:
+			continue
+		get = lambda key, default=None: dev.get(key, {}).get("data", default)
+		devices.append({
+			"address": get("Address"),
+			# A device that never sent its name has none; its alias is then the address
+			"name": get("Alias") if "Name" in dev else None,
+			"icon": ICONS.get(get("Icon"), ICON_DEVICE),
+			"paired": get("Paired", False) or get("Bonded", False),
+			"connected": get("Connected", False),
+			"rssi": get("RSSI"),
+			"battery": interfaces.get(f"{BLUEZ}.Battery1", {}).get("Percentage", {}).get("data"),
+		})
+	return adapter, devices
+
+
+def device(address):
+	"""The current state of one device (after an action), or None if BlueZ forgot it."""
+	return next((d for d in read_state()[1] if d["address"] == address), None)
+
+
+def label(d):
+	name = printable(d["name"] or d["address"])
+	if d["connected"]:
+		status = "  connected"
+		if d["battery"] is not None:
+			status += f" · {ICON_BATTERY} {d['battery']}%"
+	else:
+		status = ""
+	return f"{d['icon']}  {name}{status}"
+
+
+def device_menu(d):
+	"""Connect / Disconnect / Forget for one known device."""
+	name = d["name"] or d["address"]
+	actions = ["Disconnect" if d["connected"] else "Connect", "Forget"]
+	pick = fuzzel(actions, f"{printable(name)} ❯ ")
+	if pick is None:
+		return 0
+	action = actions[pick]
+
+	if action == "Forget":
+		if not confirm(f"Forget {printable(name)}"):
+			return 0
+		bluetoothctl("remove", d["address"])
+		if device(d["address"]) is None or not device(d["address"])["paired"]:
+			notify("Bluetooth", f"Forgot {name}. Use Scan to pair it again.")
+			return 0
+		notify("Bluetooth", f"Couldn't forget {name}.", critical=True)
+		return 1
+
+	if action == "Disconnect":
+		if d["icon"] in INPUT_ICONS and not confirm(f"Disconnect {printable(name)}"):
+			return 0
+		bluetoothctl("disconnect", d["address"])
+		if not (device(d["address"]) or {}).get("connected"):
+			notify("Bluetooth", f"Disconnected from {name}.")
+			return 0
+		notify("Bluetooth", f"Couldn't disconnect from {name}.", critical=True)
+		return 1
+
+	notify("Bluetooth", f"Connecting to {name}…")
+	out = bluetoothctl("--timeout", "20", "connect", d["address"], timeout=20)
+	if (device(d["address"]) or {}).get("connected"):
+		notify("Bluetooth", f"Connected to {name}.")
+		return 0
+	notify("Bluetooth", f"Couldn't connect to {name}. Is it on and nearby?\n{last_line(out)}", critical=True)
+	return 1
+
+
+def last_line(text):
+	"""The last meaningful line of bluetoothctl's output, without its color codes."""
+	lines = [line for line in strip_colors(text).splitlines() if line.strip() and "[CHG]" not in line]
+	return lines[-1].strip() if lines else ""
+
+
+def strip_colors(text):
+	out, skip = [], False
+	for c in text:
+		if c == "\x1b":
+			skip = True
+		elif skip:
+			skip = c != "m"
+		else:
+			out.append(c)
+	return "".join(out)
+
+
+def scan_and_pair():
+	"""Search for SCAN_SECONDS, then pair, trust, and connect the device you pick."""
+	try:
+		scan = subprocess.Popen(["bluetoothctl", "--timeout", str(SCAN_SECONDS), "scan", "on"],
+			stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+	except FileNotFoundError:
+		raise Failure("bluetoothctl is missing (install bluez-utils).")
+	# A popup with a progress bar that counts down while the scan runs (dunst updates it in place)
+	for left in range(SCAN_SECONDS, 0, -1):
+		progress("Scanning for devices…", f"{left} s left · put the device in pairing mode",
+			100 * (SCAN_SECONDS - left) // SCAN_SECONDS)
+		try:
+			scan.wait(timeout=1)
+			break
+		except subprocess.TimeoutExpired:
+			pass
+	try:
+		scan.wait(timeout=5)
+	except subprocess.TimeoutExpired:
+		scan.kill()
+	progress("Scanning for devices…", "done", 100, timeout=1000)
+
+	# Only devices that told us their name: the rest is mostly anonymous phones and beacons
+	found = [d for d in read_state()[1] if not d["paired"] and d["name"]]
+	found.sort(key=lambda d: d["rssi"] if d["rssi"] is not None else -999, reverse=True)
+	if not found:
+		notify("Bluetooth", "No new devices found. Is it in pairing mode? Try again.")
+		return 0
+
+	choice = fuzzel([label(d) for d in found], "Pair ❯ ")
+	if choice is None:
+		return 0
+	d = found[choice]
+	name = d["name"]
+
+	notify("Bluetooth", f"Pairing with {name}…")
+	out = bluetoothctl("--timeout", "30", "pair", d["address"], timeout=30)
+	if not (device(d["address"]) or {}).get("paired"):
+		notify("Bluetooth", f"Couldn't pair with {name}.\n{last_line(out)}", critical=True)
+		return 1
+	# Trusted: it may reconnect by itself later, without this menu
+	bluetoothctl("trust", d["address"])
+	bluetoothctl("--timeout", "20", "connect", d["address"], timeout=20)
+	if (device(d["address"]) or {}).get("connected"):
+		notify("Bluetooth", f"Paired and connected: {name}.")
+	else:
+		notify("Bluetooth", f"Paired with {name}, but couldn't connect yet. Pick it from the menu to try again.")
+	return 0
+
+
+def main():
+	adapter, devices = read_state()
+	if adapter is None:
+		notify("Bluetooth", "No Bluetooth adapter found.", critical=True)
+		return 1
+
+	if not adapter["powered"]:
+		if fuzzel([f"{ICON_OFF}  Bluetooth is off. Turn it on"], "Bluetooth ❯ ") is None:
+			return 0
+		out = bluetoothctl("power", "on")
+		if read_state()[0]["powered"]:
+			notify("Bluetooth", "Bluetooth is on.")
+			return main()
+		# Usually rfkill (an airplane mode switch or key) is holding it off
+		notify("Bluetooth", f"Couldn't turn Bluetooth on. Check: rfkill list\n{last_line(out)}", critical=True)
+		return 1
+
+	known = [d for d in devices if d["paired"] or d["connected"]]
+	known.sort(key=lambda d: (not d["connected"], (d["name"] or d["address"]).lower()))
+
+	lines = [label(d) for d in known]
+	lines.append(f"{ICON_SCAN}  Scan for new devices")
+	lines.append(f"{ICON_OFF}  Turn Bluetooth off")
+	choice = fuzzel(lines, "Bluetooth ❯ ")
+	if choice is None:
+		return 0
+
+	if choice < len(known):
+		return device_menu(known[choice])
+	if choice == len(known):
+		return scan_and_pair()
+
+	inputs = [d for d in known if d["connected"] and d["icon"] in INPUT_ICONS]
+	if inputs and not confirm("Turn off Bluetooth, keyboard/mouse too"):
+		return 0
+	bluetoothctl("power", "off")
+	notify("Bluetooth", "Bluetooth is off.")
+	return 0
+
+
+if __name__ == "__main__":
+	try:
+		sys.exit(main())
+	except Failure as e:
+		notify("Bluetooth", str(e), critical=True)
+		sys.exit(1)

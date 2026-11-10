@@ -13,13 +13,12 @@
 	// Center: date and time
 	"modules-center": ["clock"],
 	// Right: keep awake, Do Not Disturb bell (only while on), Wi-Fi, volume, brightness, battery
-	"modules-right": ["idle_inhibitor", "custom/dnd", "network", "wireplumber", "backlight", "battery"],
+	"modules-right": ["idle_inhibitor", "custom/dnd", "network", "bluetooth", "wireplumber", "backlight", "battery"],
 
 	"sway/workspaces": {
 		"disable-scroll": true,
-		"all-outputs": true,
-		// Always show 1-5, even when empty
-		"persistent-workspaces": { "1": [], "2": [], "3": [], "4": [], "5": [] },
+		// Each bar shows only its own screen's workspaces, and only the ones in use
+		"all-outputs": false,
 		"format": "{name}"
 	},
 
@@ -75,6 +74,21 @@
 		"tooltip-format-wifi": "{essid}  signal {signalStrength}%\n{ipaddr}",
 		"tooltip-format-disconnected": "Disconnected",
 		"interval": 10
+	},
+
+	// BlueZ. Shows how many devices are connected; hover for their names (and battery, if they
+	// report it). Click to open the Bluetooth menu (~/.config/makima-sway/bin/bluetooth-menu).
+	"bluetooth": {
+		"format": "󰂯",
+		"format-off": "󰂲 off",
+		"format-disabled": "󰂲 off",
+		"format-connected": "󰂱 {num_connections}",
+		"tooltip-format": "Bluetooth on, nothing connected",
+		"tooltip-format-off": "Bluetooth off",
+		"tooltip-format-connected": "{device_enumerate}",
+		"tooltip-format-enumerate-connected": "{device_alias}",
+		"tooltip-format-enumerate-connected-battery": "{device_alias}  {device_battery_percentage}%",
+		"on-click": "~/.local/bin/bluetooth-menu"
 	},
 
 	// PipeWire volume. Updates by itself when the volume changes, no signal needed.

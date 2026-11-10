@@ -93,7 +93,8 @@ That shaped the design rules:
 - **Gaps and thin borders.** No title bars. The focused window gets a crimson 2 px border, and the wallpaper shows through the gaps.
 - **Semi-transparent terminal.** foot at 93 % opacity with a crimson block cursor and a matching bash prompt.
 - **Firefox to match.** The tab strip, address bar and menus use the terminal colors (a `userChrome.css`), and Sway shows the whole window at 93 %, like foot. Sway can only fade a window as a whole, so page text is 93 % too; delete the `for_window [app_id="firefox"]` line in the Sway config if you want it solid.
-- **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed. Pick the connected network to disconnect, or a saved one to forget it (that is also how you enter a new password after it changed).
+- **Wi-Fi menu.** A small Python script asks `iwd` over D-Bus for networks, shows them in fuzzel with signal bars, and asks for a password when needed. If iwd only knows the current network (common right after connecting), it waits for a fresh scan first, with a progress popup; "Scan again" refreshes the list on demand. Pick the connected network to disconnect, or a saved one to forget it (that is also how you enter a new password after it changed).
+- **Bluetooth menu.** Click the Bluetooth icon in the bar: connected devices first (with battery, if they report it), then Connect / Disconnect / Forget, or scan, pair, trust, and connect a new device in one go. Talks to BlueZ over D-Bus, like the Wi-Fi menu.
 - **Notifications by urgency.** Volume and brightness popups get an amber progress bar. Critical alerts get an oxblood background and stay until you dismiss them.
 - **Low battery warning.** A popup at 15 % and a critical one that stays at 7 %, once per level instead of every few minutes, and it gets through Do Not Disturb. Checked every 2 minutes by a systemd user timer; does nothing on a machine without a battery.
 - **Lock screen.** A blurred, darkened copy of the wallpaper with a palette-colored ring. It locks after 10 min idle and before suspend, and the screen turns off at 11 min.
@@ -119,6 +120,7 @@ That shaped the design rules:
 | Wallpaper | swaybg (through Sway) | `wallpapers/makima-torii.jpg` |
 | Screenshots | grim + slurp + wl-clipboard | `bin/screenshot` |
 | Wi-Fi | iwd (D-Bus) | `bin/wifi-menu` |
+| Bluetooth | BlueZ (D-Bus + bluetoothctl) | `bin/bluetooth-menu` |
 | Shell prompt | bash | `config/bash/makima-prompt.sh` |
 | Cursor | Bibata Modern Amber → recolored | `design/recolor-cursor.py` |
 | Font | JetBrainsMono Nerd Font | – |
@@ -175,7 +177,7 @@ sudo pacman -S --needed \
 	sway swaybg swayidle swaylock waybar \
 	foot fuzzel dunst libnotify \
 	grim slurp wl-clipboard xorg-xwayland \
-	brightnessctl pipewire wireplumber iwd \
+	brightnessctl pipewire wireplumber iwd bluez bluez-utils \
 	python ttf-jetbrains-mono-nerd
 ```
 
@@ -190,6 +192,7 @@ sudo pacman -S --needed \
 | `xorg-xwayland` | For X11-only apps |
 | `brightnessctl` | Brightness keys (`bin/brightness`) |
 | `pipewire wireplumber` | Volume keys and the bar's volume module (`wpctl`) |
+| `bluez bluez-utils` | Bluetooth: the bar module and `bin/bluetooth-menu`. Enable it with `sudo systemctl enable --now bluetooth` |
 | `iwd` | Wi-Fi. The bar module and `bin/wifi-menu` expect iwd, not NetworkManager |
 | `python` | `bin/wifi-menu` and the cursor recolor script (standard library only) |
 | `ttf-jetbrains-mono-nerd` | Font and bar icons |
@@ -374,6 +377,7 @@ The cursor theme is also written to `gsettings` on every Sway (re)load. GTK apps
 | Coffee cup | Keep awake: click to stop the screen from locking (turns itself off after 2 hours) |
 | Bell (only while on) | Do Not Disturb is on; click to turn it off |
 | Wi-Fi | Click to open the Wi-Fi menu |
+| Bluetooth | Click to open the Bluetooth menu; hover for the connected devices |
 | Volume | Click to mute, scroll to change |
 | Brightness | Scroll to change |
 | Clock | Hover for a month calendar |
@@ -395,6 +399,7 @@ All scripts live in `bin/` and are linked into `~/.local/bin`:
 | `keybindings` | Lists the Sway keybindings in fuzzel, read from the config and `config.d` |
 | `dnd` | Do Not Disturb toggle (`dnd status` feeds the Waybar bell) |
 | `battery-warning` | Low battery popup at 15 % and 7 % (once per level), run every 2 minutes by `battery-warning.timer` |
+| `bluetooth-menu` | Lists known Bluetooth devices in fuzzel (connected first), connects / disconnects / forgets them, and scans for 10 s to pair, trust, and connect a new one. Asks before taking away a Bluetooth keyboard or mouse |
 | `wifi-menu` | Lists networks from iwd over D-Bus in fuzzel, connects, and asks for a password when needed. Connected / saved networks offer Disconnect / Connect / Forget |
 
 The shared scripts check `$WAYLAND_DISPLAY`, so the same file works under both i3 and Sway.

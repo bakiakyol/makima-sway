@@ -159,7 +159,7 @@ echo "Checks:"
 # Programs the configs and scripts call. (i3 extras like maim, xclip, i3lock aren't checked.)
 missing=
 for prog in sway waybar foot fuzzel dunst notify-send swaylock swayidle grim slurp wl-copy \
-	brightnessctl wpctl iwctl busctl python3; do
+	brightnessctl wpctl iwctl bluetoothctl busctl python3; do
 	command -v "$prog" >/dev/null 2>&1 || missing="$missing $prog"
 done
 if [ -n "$missing" ]; then

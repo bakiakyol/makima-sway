@@ -90,6 +90,7 @@ tooltip label {
 #idle_inhibitor,
 #custom-dnd,
 #network,
+#bluetooth,
 #wireplumber,
 #backlight,
 #battery {
@@ -106,6 +107,10 @@ tooltip label {
 
 #network              { color: @teal; }
 #network.disconnected { color: @muted; }
+
+#bluetooth           { color: @teal; }
+#bluetooth.off,
+#bluetooth.disabled  { color: @muted; }
 
 #wireplumber       { color: @amber; }
 #wireplumber.muted { color: @muted; }
